@@ -50,6 +50,9 @@ interface Competitor {
   lastScanAt?: string | null
   nextScanAt?: string | null
   lastError?: string | null
+  contextReviewRequired: boolean
+  contextInvalidatedAt?: string | null
+  contextReviewedAt?: string | null
   sources: CompetitorSource[]
   _count?: { signals: number }
 }
@@ -65,6 +68,7 @@ interface CompetitorSignal {
   importance: number
   status: 'NEW' | 'REVIEWED' | 'DISMISSED' | 'PROPOSED'
   proposalId?: string | null
+  reviewedBy?: string | null
   createdAt: string
   competitor: { name: string; domain: string }
   source: { url: string; type: string }
@@ -195,10 +199,19 @@ export default function CompetitorCenterPage() {
       const response = await fetch(`/api/competitors/${competitor.id}`, {
         method: 'PATCH',
         headers: { Authorization: token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: competitor.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE' }),
+        body: JSON.stringify({
+          status: competitor.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE',
+          confirmCurrentBrandContext: competitor.status === 'PAUSED' && competitor.contextReviewRequired,
+        }),
       })
       const data = await response.json().catch(() => ({})) as { error?: string }
       if (!response.ok) throw new Error(data.error || copy('تعذر تحديث الحالة.', 'Could not update status.'))
+      if (competitor.contextReviewRequired) {
+        setNotice(copy(
+          'تم تأكيد المنافس للبراند الحالي. سيُنشئ الفحص التالي Baseline جديدًا مستقلًا، مع الاحتفاظ بالتاريخ القديم كمرجع فقط.',
+          'Competitor confirmed for the current brand. The next scan creates a separate baseline; old history remains reference-only.',
+        ))
+      }
       await load()
     } catch (toggleError) {
       setError(toggleError instanceof Error ? toggleError.message : copy('تعذر تحديث الحالة.', 'Could not update status.'))
@@ -233,7 +246,10 @@ export default function CompetitorCenterPage() {
   }
 
   const newSignals = useMemo(() => signals.filter(signal => signal.status === 'NEW'), [signals])
-  const readyCount = competitors.filter(competitor => competitor.baselineStatus === 'READY').length
+  const currentCompetitors = competitors.filter(competitor => !competitor.contextReviewRequired)
+  const activeCount = currentCompetitors.filter(competitor => competitor.status === 'ACTIVE').length
+  const readyCount = currentCompetitors.filter(competitor => competitor.baselineStatus === 'READY').length
+  const reviewCount = competitors.filter(competitor => competitor.contextReviewRequired).length
 
   if (authLoading || (loading && competitors.length === 0)) {
     return (
@@ -269,10 +285,11 @@ export default function CompetitorCenterPage() {
             secondaryLabel="Brand Brain"
           />
 
-          <section className="grid gap-3 md:grid-cols-3">
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {[
-              { label: copy('منافسون مراقبون', 'Monitored competitors'), value: `${competitors.length}/${maxCompetitors}`, icon: Eye },
-              { label: copy('خطوط أساس جاهزة', 'Baselines ready'), value: readyCount, icon: ShieldCheck },
+              { label: copy('مراقبة فعالة للبراند الحالي', 'Active for current brand'), value: `${activeCount}/${maxCompetitors}`, icon: Eye },
+              { label: copy('خطوط أساس حالية جاهزة', 'Current baselines ready'), value: readyCount, icon: ShieldCheck },
+              { label: copy('تحتاج تأكيد البراند', 'Need brand confirmation'), value: reviewCount, icon: AlertTriangle },
               { label: copy('إشارات جديدة للمراجعة', 'New signals to review'), value: newSignals.length, icon: ScanSearch },
             ].map(item => (
               <div key={item.label} className="nx-os-card flex items-center justify-between p-5">
@@ -281,6 +298,25 @@ export default function CompetitorCenterPage() {
               </div>
             ))}
           </section>
+
+          {reviewCount > 0 ? (
+            <section role="status" className="rounded-[20px] border border-amber-300 bg-amber-50 p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+                <div>
+                  <p className="text-[12px] font-black text-amber-950">
+                    {copy('تغيّرت هوية Brand Brain — المراقبة القديمة متوقفة بأمان', 'Brand Brain identity changed — old monitoring is safely paused')}
+                  </p>
+                  <p className="mt-1 text-[10px] font-semibold leading-5 text-amber-800">
+                    {copy(
+                      'راجع كل منافس ثم أكّده فقط إذا كان يخص البراند الحالي. لن تُستخدم Snapshots أو إشارات البراند السابق في Baseline الجديد.',
+                      'Review each competitor and confirm it only if it belongs to the current brand. Previous-brand snapshots and signals will not enter the new baseline.',
+                    )}
+                  </p>
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           <section className="rounded-[20px] border border-amber-200 bg-amber-50/70 p-4">
             <div className="flex items-start gap-3">
@@ -323,7 +359,7 @@ export default function CompetitorCenterPage() {
                 {copy('الموقع العام الذي تؤكد أنه رسمي', 'Public website you confirm is official')}
                 <input value={websiteUrl} onChange={event => setWebsiteUrl(event.target.value)} required inputMode="url" className="h-11 rounded-xl border border-slate-200 px-3 text-left text-[12px] font-semibold outline-none focus:border-violet-400" placeholder="https://example.com" dir="ltr" />
               </label>
-              <button type="submit" disabled={busy === 'create' || competitors.filter(item => item.status === 'ACTIVE').length >= maxCompetitors} className="mt-auto inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#071236] px-5 text-[11px] font-black text-white disabled:cursor-not-allowed disabled:opacity-50">
+              <button type="submit" disabled={busy === 'create' || activeCount >= maxCompetitors} className="mt-auto inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#071236] px-5 text-[11px] font-black text-white disabled:cursor-not-allowed disabled:opacity-50">
                 {busy === 'create' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 {copy('أكّد وأنشئ Baseline', 'Confirm & capture baseline')}
               </button>
@@ -347,19 +383,27 @@ export default function CompetitorCenterPage() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="truncate text-[15px] font-black text-[#071236]">{competitor.name}</h3>
-                        <span className={`rounded-full border px-2.5 py-1 text-[8px] font-black ${competitor.baselineStatus === 'READY' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : competitor.baselineStatus === 'FAILED' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
-                          {competitor.baselineStatus === 'READY' ? copy('Baseline جاهز', 'Baseline ready') : competitor.baselineStatus === 'FAILED' ? copy('Baseline فشل', 'Baseline failed') : copy('Baseline قيد التجهيز', 'Baseline pending')}
+                        <span className={`rounded-full border px-2.5 py-1 text-[8px] font-black ${competitor.contextReviewRequired ? 'border-amber-300 bg-amber-50 text-amber-800' : competitor.baselineStatus === 'READY' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : competitor.baselineStatus === 'FAILED' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+                          {competitor.contextReviewRequired
+                            ? copy('قديم — يحتاج تأكيد البراند', 'Stale — confirm brand')
+                            : competitor.baselineStatus === 'READY'
+                              ? copy('Baseline جاهز', 'Baseline ready')
+                              : competitor.baselineStatus === 'FAILED'
+                                ? copy('Baseline فشل', 'Baseline failed')
+                                : copy('Baseline قيد التجهيز', 'Baseline pending')}
                         </span>
                       </div>
                       <a href={competitor.websiteUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-violet-600 hover:underline" dir="ltr">{competitor.domain}<ExternalLink className="h-3 w-3" /></a>
                     </div>
-                    <button type="button" onClick={() => void toggleCompetitor(competitor)} disabled={statusBusy} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 text-slate-600 disabled:opacity-50" title={competitor.status === 'ACTIVE' ? copy('إيقاف', 'Pause') : copy('استئناف', 'Resume')} aria-label={competitor.status === 'ACTIVE' ? copy('إيقاف مراقبة المنافس', 'Pause competitor monitoring') : copy('استئناف مراقبة المنافس', 'Resume competitor monitoring')}>
-                      {statusBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : competitor.status === 'ACTIVE' ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                    </button>
+                    {!competitor.contextReviewRequired ? (
+                      <button type="button" onClick={() => void toggleCompetitor(competitor)} disabled={statusBusy} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 text-slate-600 disabled:opacity-50" title={competitor.status === 'ACTIVE' ? copy('إيقاف', 'Pause') : copy('استئناف', 'Resume')} aria-label={competitor.status === 'ACTIVE' ? copy('إيقاف مراقبة المنافس', 'Pause competitor monitoring') : copy('استئناف مراقبة المنافس', 'Resume competitor monitoring')}>
+                        {statusBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : competitor.status === 'ACTIVE' ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                      </button>
+                    ) : null}
                   </div>
                   <dl className="mt-4 grid grid-cols-2 gap-3 rounded-2xl bg-slate-50 p-4 text-[9px]">
                     <div><dt className="font-black text-slate-500">{copy('آخر فحص', 'Last check')}</dt><dd className="mt-1 font-bold text-slate-800">{dateLabel(competitor.lastScanAt, locale)}</dd></div>
-                    <div><dt className="font-black text-slate-500">{copy('الفحص التالي', 'Next due')}</dt><dd className="mt-1 font-bold text-slate-800">{competitor.status === 'PAUSED' ? copy('متوقف', 'Paused') : dateLabel(source?.nextScanAt || competitor.nextScanAt, locale)}</dd></div>
+                    <div><dt className="font-black text-slate-500">{copy('الفحص التالي', 'Next due')}</dt><dd className="mt-1 font-bold text-slate-800">{competitor.contextReviewRequired ? copy('محجوب حتى التأكيد', 'Blocked pending confirmation') : competitor.status === 'PAUSED' ? copy('متوقف', 'Paused') : dateLabel(source?.nextScanAt || competitor.nextScanAt, locale)}</dd></div>
                     <div><dt className="font-black text-slate-500">{copy('Snapshots', 'Snapshots')}</dt><dd className="mt-1 font-bold text-slate-800">{source?._count?.snapshots ?? 0}</dd></div>
                     <div><dt className="font-black text-slate-500">{copy('إشارات التغيير', 'Change signals')}</dt><dd className="mt-1 font-bold text-slate-800">{competitor._count?.signals ?? 0}</dd></div>
                   </dl>
@@ -368,10 +412,17 @@ export default function CompetitorCenterPage() {
                       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{source?.lastError || competitor.lastError}
                     </div>
                   ) : null}
-                  <button type="button" onClick={() => void scanCompetitor(competitor.id)} disabled={scanBusy || competitor.status !== 'ACTIVE'} className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 text-[10px] font-black text-violet-700 disabled:opacity-50">
-                    {scanBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />}
-                    {competitor.baselineStatus === 'READY' ? copy('افحص الآن', 'Scan now') : copy('أعد محاولة Baseline', 'Retry baseline')}
-                  </button>
+                  {competitor.contextReviewRequired ? (
+                    <button type="button" onClick={() => void toggleCompetitor(competitor)} disabled={statusBusy} className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 text-[10px] font-black text-amber-800 disabled:opacity-50">
+                      {statusBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                      {copy('أؤكد أن هذا منافس للبراند الحالي', 'Confirm as a competitor for the current brand')}
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => void scanCompetitor(competitor.id)} disabled={scanBusy || competitor.status !== 'ACTIVE'} className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 text-[10px] font-black text-violet-700 disabled:opacity-50">
+                      {scanBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />}
+                      {competitor.baselineStatus === 'READY' ? copy('افحص الآن', 'Scan now') : copy('أعد محاولة Baseline', 'Retry baseline')}
+                    </button>
+                  )}
                 </article>
               )
             })}
@@ -392,13 +443,20 @@ export default function CompetitorCenterPage() {
               ) : signals.map(signal => {
                 const expanded = expandedSignal === signal.id
                 const actionBusy = Boolean(busy?.endsWith(`:${signal.id}`))
+                const previousBrandSignal = signal.status === 'DISMISSED'
+                  && signal.reviewedBy?.startsWith('SYSTEM:BRAND_CONTEXT')
                 return (
-                  <article key={signal.id} className={`rounded-2xl border p-4 ${signal.status === 'NEW' ? 'border-violet-200 bg-violet-50/30' : 'border-slate-200 bg-white'}`}>
+                  <article key={signal.id} className={`rounded-2xl border p-4 ${signal.status === 'NEW' ? 'border-violet-200 bg-violet-50/30' : previousBrandSignal ? 'border-amber-200 bg-amber-50/40' : 'border-slate-200 bg-white'}`}>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded-full bg-white px-2.5 py-1 text-[8px] font-black text-violet-700 shadow-sm">{signal.type.replace(/_/g, ' ')}</span>
                           <span className="text-[8px] font-black text-slate-500">{signal.confidence}% {copy('ثقة في رصد التغيير', 'change-detection confidence')}</span>
+                          {previousBrandSignal ? (
+                            <span className="rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[8px] font-black text-amber-800">
+                              {copy('مؤرشف من Brand Brain سابق', 'Archived from a previous Brand Brain')}
+                            </span>
+                          ) : null}
                         </div>
                         <h3 className="mt-2 text-[12px] font-black text-[#071236]">{signal.title}</h3>
                         <p className="mt-1 text-[10px] font-semibold leading-5 text-slate-600">{signal.summary}</p>

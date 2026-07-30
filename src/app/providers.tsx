@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { Toaster } from 'sonner'
 import { AuthProvider } from '@/lib/auth-context'
-import { I18nProvider, useI18n } from '@/lib/i18n-context'
+import { I18nProvider, useI18n, type Locale } from '@/lib/i18n-context'
 import ChatWidget from '@/components/ui/ChatWidget'
 import CookieBanner from '@/components/ui/CookieBanner'
 import type { ReactNode } from 'react'
@@ -18,9 +18,15 @@ function DirSyncer() {
   return null
 }
 
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({
+  children,
+  initialLocale,
+}: {
+  children: ReactNode
+  initialLocale: Locale
+}) {
   return (
-    <I18nProvider>
+    <I18nProvider initialLocale={initialLocale}>
       <DirSyncer />
       <AuthProvider>
         {children}

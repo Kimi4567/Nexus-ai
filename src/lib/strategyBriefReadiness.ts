@@ -128,9 +128,13 @@ export function hasUsableConversionDestination(
   campaignObjective?: string | null,
 ): boolean {
   const value = typeof destination === 'string' ? destination.trim() : ''
-  if (!value || /\b(?:tbd|todo|not (?:yet )?(?:set|connected|available|published)|coming soon|to be (?:created|built|published|connected)|will be (?:created|built|published|connected)|create (?:it|this|the form|the landing page) later)\b/i.test(value)) return false
+  if (
+    !value
+    || /\b(?:tbd|todo|not (?:yet )?(?:set|connected|available|published)|coming soon|to be (?:created|built|published|connected)|will be (?:created|built|published|connected)|create (?:it|this|the form|the landing page) later)\b/i.test(value)
+    || /(?:سيتم|سوف)\s+(?:إنشاء|بناء|نشر|ربط).{0,60}(?:لاحق[ًاا]?|فيما\s+بعد)|(?:غير\s+(?:محدد|محددة|متاح|متاحة|منشور|منشورة|مربوط|مربوطة)|قيد\s+الإنشاء)/i.test(value)
+  ) return false
   if (campaignObjective?.toLowerCase() === 'sales') return /^https?:\/\/\S+$/i.test(value)
-  return /^(?:https?:\/\/\S+|.+(?:whatsapp|form|landing page|dm|phone|booking).*)$/i.test(value)
+  return /^(?:https?:\/\/\S+|.+(?:whatsapp|form|landing page|dm|phone|booking|واتساب|نموذج|صفحة\s+هبوط|رسائل?\s+خاص(?:ة|ه)|هاتف|حجز|تقويم).*)$/iu.test(value)
 }
 
 const unique = <T>(items: T[]): T[] => Array.from(new Set(items))

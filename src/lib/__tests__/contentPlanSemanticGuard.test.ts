@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { validateContentPlanSemanticAlignment } from '@/lib/contentPlanSemanticGuard'
+import {
+  ensureContentPlanConversionHandoff,
+  validateContentPlanSemanticAlignment,
+} from '@/lib/contentPlanSemanticGuard'
 
 const dentalStrategy = {
   keyMessage: 'Make the first dental consultation easier to understand',
@@ -34,6 +37,66 @@ describe('contentPlanSemanticGuard', () => {
 
     expect(result.ok).toBe(true)
     expect(result.alignedPosts).toBe(2)
+  })
+
+  it('requires a real conversion handoff when Brand Brain defines one', () => {
+    const conversionDestination = 'صفحة هبوط مع نموذج حجز Demo ثم واتساب أو تقويم المبيعات'
+    const missing = validateContentPlanSemanticAlignment([
+      { caption: 'تعبت من تأخر الفواتير؟ تعرّف على طريقة تنظيم متابعة الفواتير.' },
+      { caption: 'راجع مؤشرات التدفق النقدي بوضوح أكبر.' },
+    ], {
+      keyMessage: 'وضوح التدفق النقدي وإدارة الفواتير',
+      contentAnglesDetailed: [
+        { title: 'متابعة الفواتير' },
+        { title: 'التدفق النقدي' },
+      ],
+    }, {
+      brandFacts: ['منصة لإدارة الفواتير والتدفق النقدي'],
+      conversionDestination,
+    })
+
+    expect(missing.ok).toBe(false)
+    expect(missing.issues.map(issue => issue.reason)).toContain('missing_conversion_handoff')
+
+    const grounded = validateContentPlanSemanticAlignment([
+      { caption: 'تعبت من تأخر الفواتير؟ تعرّف على طريقة تنظيم متابعة الفواتير.' },
+      { caption: 'راجع التدفق النقدي، ثم احجز Demo عبر نموذج صفحة الهبوط واختر واتساب أو تقويم المبيعات للمتابعة.' },
+    ], {
+      keyMessage: 'وضوح التدفق النقدي وإدارة الفواتير',
+      contentAnglesDetailed: [
+        { title: 'متابعة الفواتير' },
+        { title: 'التدفق النقدي' },
+      ],
+    }, {
+      brandFacts: ['منصة لإدارة الفواتير والتدفق النقدي'],
+      conversionDestination,
+    })
+
+    expect(grounded.ok).toBe(true)
+  })
+
+  it('deterministically adds the verified Brand Brain handoff to the conversion-stage draft', () => {
+    const conversionDestination = 'صفحة هبوط ثنائية اللغة مع نموذج حجز Demo، ثم تحويل العميل المؤهل إلى واتساب أو تقويم المبيعات'
+    const strategy = {
+      contentAnglesDetailed: [
+        { title: 'وعي بالمشكلة', funnelStage: 'awareness' },
+        { title: 'مراجعة الفواتير', funnelStage: 'consideration' },
+        { title: 'قرار التجربة', funnelStage: 'conversion' },
+      ],
+    }
+    const posts = ensureContentPlanConversionHandoff([
+      { contentPlanIndex: 1, caption: 'راجع رؤية التدفق النقدي.' },
+      { contentPlanIndex: 2, caption: 'راجع أيام تحصيل الفواتير.' },
+      { contentPlanIndex: 3, caption: 'واجهة عربية لمراجعة التدفق النقدي.' },
+    ], strategy, conversionDestination)
+
+    expect(posts[0].caption).toBe('راجع رؤية التدفق النقدي.')
+    expect(posts[2].caption).toContain('احجز Demo عبر نموذج صفحة الهبوط')
+    expect(posts[2].caption).toContain('واتساب أو تقويم المبيعات')
+    expect(validateContentPlanSemanticAlignment(posts, strategy, {
+      brandFacts: ['منصة لإدارة الفواتير والتدفق النقدي'],
+      conversionDestination,
+    }).issues.map(issue => issue.reason)).not.toContain('missing_conversion_handoff')
   })
 
   it('does not classify a normal delivery handoff as operational SaaS drift', () => {
@@ -77,6 +140,26 @@ describe('contentPlanSemanticGuard', () => {
     expect(result.issues).toContainEqual(expect.objectContaining({
       reason: 'unexpected_operational_saas_drift',
       evidence: expect.arrayContaining(['workflow ownership handoff']),
+    }))
+  })
+
+  it('blocks coffee copy introduced into a cash-flow SaaS image direction', () => {
+    const result = validateContentPlanSemanticAlignment([
+      {
+        caption: 'راجع إدارة الفواتير والتدفق النقدي.',
+        imagePrompt: 'Review the documented coffee and subscription details.',
+      },
+    ], {
+      keyMessage: 'إدارة الفواتير والتدفق النقدي',
+      contentAnglesDetailed: [{ title: 'إدارة الفواتير' }],
+    }, {
+      brandFacts: ['B2B SaaS subscription for cash-flow forecasting and invoice management'],
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.issues).toContainEqual(expect.objectContaining({
+      reason: 'unexpected_domain_drift',
+      evidence: expect.arrayContaining(['coffee-domain copy in a non-coffee campaign']),
     }))
   })
 

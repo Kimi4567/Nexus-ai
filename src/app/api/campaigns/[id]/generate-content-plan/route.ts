@@ -14,7 +14,7 @@
  * Clears all PENDING/DRAFT content plan posts (not yet published)
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { after, NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import {
@@ -27,6 +27,7 @@ import {
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { PLAN_QUOTAS } from '@/lib/stripe'
+import { fetchAiProvider } from '@/lib/ai/providerFetch'
 import { resolvePostCaption } from '@/lib/contentPlanCaption'
 import {
   bindContentPlanSlotsToStrategyAngles,
@@ -51,7 +52,10 @@ import {
   renderContentPlanDraftVideoPrompt,
   validateContentPlanDraftForSave,
 } from '@/lib/contentPlanStructuredRenderer'
-import { validateContentPlanSemanticAlignment } from '@/lib/contentPlanSemanticGuard'
+import {
+  ensureContentPlanConversionHandoff,
+  validateContentPlanSemanticAlignment,
+} from '@/lib/contentPlanSemanticGuard'
 import { resolveContentPlanBrandName } from '@/lib/contentPlanBrandContext'
 import { canMutateCampaignExecution } from '@/lib/strategyApproval'
 import { readLockedPlannedPostAllowance } from '@/lib/postCommercial'
@@ -61,6 +65,16 @@ import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { readOpenAIChatUsage, summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
 import { hasUsableConversionDestination } from '@/lib/strategyBriefReadiness'
 import { sourceLinkedProofStatements } from '@/lib/strategy/strategyEvidenceLedger'
+import {
+  enqueueCampaignApprovalPackageJob,
+  findCampaignApprovalPackageJob,
+} from '@/lib/automationJobs/repository'
+import { processAutomationJobById } from '@/lib/automationJobs/processor'
+import {
+  CAMPAIGN_APPROVAL_PACKAGE_JOB_KIND,
+  serializeCreditDeduction,
+  toPublicAutomationJob,
+} from '@/lib/automationJobs/types'
 
 // Heavy gpt-4o generation (up to 18 posts) + optional media vision can run well
 // past the platform default. Match the sibling routes (engine, /generate) so the
@@ -68,6 +82,9 @@ import { sourceLinkedProofStatements } from '@/lib/strategy/strategyEvidenceLedg
 export const maxDuration = 180
 
 type Params = { params: Promise<{ id: string }> }
+type ContentPlanExecutionOptions = {
+  reservedCredit?: CreditDeductionOk
+}
 
 // ── Platform distribution helpers ─────────────────────────────────────────────
 
@@ -119,10 +136,23 @@ export async function POST(req: NextRequest, props: Params) {
   const params = await props.params
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  return executeContentPlanGeneration(req, params.id, userId)
+}
 
+/**
+ * Internal execution seam used by the durable automation worker. Authentication
+ * stays in POST; the worker receives only an owner id already persisted on the
+ * ownership-scoped job and reuses the exact reserved credit transaction.
+ */
+export async function executeContentPlanGeneration(
+  req: NextRequest,
+  campaignId: string,
+  userId: string,
+  options: ContentPlanExecutionOptions = {},
+) {
   // Hoisted so any failure below the deduction (incl. the outer catch) can refund.
-  let contentPlanCharged = false
-  let contentPlanCharge: CreditDeductionOk | null = null
+  let contentPlanCharged = Boolean(options.reservedCredit)
+  let contentPlanCharge: CreditDeductionOk | null = options.reservedCredit ?? null
   let abVariantsCharged = false
   let abVariantsCharge: CreditDeductionOk | null = null
   let contentPlanProviderUsages: unknown[] = []
@@ -145,7 +175,7 @@ export async function POST(req: NextRequest, props: Params) {
   try {
     // ── 1. Load campaign ───────────────────────────────────────────────────
     const campaign = await prisma.campaign.findFirst({
-      where: { id: params.id, workspace: { ownerId: userId } },
+      where: { id: campaignId, workspace: { ownerId: userId } },
       include: {
         workspace: {
           include: {
@@ -171,6 +201,7 @@ export async function POST(req: NextRequest, props: Params) {
                 complianceNotes: true,
                 verifiedProof: true,
                 conversionDestination: true,
+                leadHandling: true,
               },
             },
           },
@@ -198,6 +229,9 @@ export async function POST(req: NextRequest, props: Params) {
       brandProfile?.audiencePainPoints ?? [],
       brandProfile?.audienceDesires ?? [],
       brandProfile?.uniqueAdvantages ?? [],
+      brandProfile?.businessGoal,
+      brandProfile?.conversionDestination,
+      brandProfile?.leadHandling,
       brandProfile?.complianceNotes,
       brandProfile?.verifiedProof ?? [],
     ]
@@ -221,7 +255,7 @@ export async function POST(req: NextRequest, props: Params) {
       brand: brandProfile,
       allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms.map(String) : [],
       requireAllReviewedPlatforms: true,
-      goal: campaign.goal,
+      goal: brandProfile?.businessGoal || campaign.goal,
     })
 
     if (strategyQualityGate.status === 'blocked') {
@@ -269,7 +303,7 @@ export async function POST(req: NextRequest, props: Params) {
 
     // ── 3. Check plan quota ────────────────────────────────────────────────
     const initialAllowance = await prisma.$transaction((tx) =>
-      readLockedPlannedPostAllowance(tx, userId, params.id),
+      readLockedPlannedPostAllowance(tx, userId, campaignId),
     )
     const planName = initialAllowance.plan.toLowerCase()
     const quota = PLAN_QUOTAS[planName] ?? PLAN_QUOTAS['free']
@@ -305,6 +339,17 @@ export async function POST(req: NextRequest, props: Params) {
     const body = await req.json().catch(() => ({}))
     const bodyLanguage: string = body.language ?? aiOutput?.language ?? ''
     const enableABTesting: boolean = body.enableABTesting ?? false
+    const asyncRequested = !options.reservedCredit
+      && !enableABTesting
+      && req.headers?.get?.('prefer')
+        ?.split(',')
+        .some(value => value.trim().toLowerCase() === 'respond-async') === true
+    const operationKey = getCreditOperationKey(
+      req,
+      'CONTENT_PLAN_GENERATION',
+      'campaign_content_plan',
+      campaignId,
+    )
 
     if (enableABTesting && slotScope.imagePosts <= 0) {
       return NextResponse.json({
@@ -318,18 +363,51 @@ export async function POST(req: NextRequest, props: Params) {
       return NextResponse.json(getAiProviderUnavailablePayload(bodyLanguage), { status: 503 })
     }
 
-    const rateLimitResponse = await enforceBillableAiRateLimit(userId, 'CONTENT_PLAN_GENERATION')
-    if (rateLimitResponse) return rateLimitResponse
+    if (asyncRequested) {
+      const existingJob = await findCampaignApprovalPackageJob({
+        workspaceId,
+        campaignId,
+        idempotencyKey: operationKey,
+      })
+      if (existingJob) {
+        const publicJob = toPublicAutomationJob(existingJob)
+        if (publicJob.canResume) {
+          after(async () => {
+            await processAutomationJobById(existingJob.id).catch((error) => {
+              console.error('[campaign-approval-package-job-replay]', existingJob.id, error)
+            })
+          })
+        }
+        return NextResponse.json({
+          accepted: !publicJob.terminal,
+          reused: true,
+          jobId: existingJob.id,
+          job: publicJob,
+        }, {
+          status: publicJob.status === 'COMPLETED' ? 200 : 202,
+          headers: {
+            'Cache-Control': 'private, no-store',
+            'Retry-After': '2',
+            'Location': `/api/automation/jobs/${existingJob.id}`,
+          },
+        })
+      }
+    }
+
+    if (!options.reservedCredit) {
+      const rateLimitResponse = await enforceBillableAiRateLimit(userId, 'CONTENT_PLAN_GENERATION')
+      if (rateLimitResponse) return rateLimitResponse
+    }
 
     // ── 4. Reserve the centralized content-plan price ────────────────────
-    const creditCheck = await checkAndDeductCredits(
+    const creditCheck = options.reservedCredit ?? await checkAndDeductCredits(
       userId,
       'CONTENT_PLAN_GENERATION',
       undefined,
       {
-        entityId: params.id,
+        entityId: campaignId,
         entityType: 'campaign_content_plan',
-        operationKey: getCreditOperationKey(req, 'CONTENT_PLAN_GENERATION', 'campaign_content_plan', params.id),
+        operationKey,
       },
     )
     if (!creditCheck.ok) {
@@ -353,9 +431,9 @@ export async function POST(req: NextRequest, props: Params) {
         'CONTENT_AB_VARIANTS',
         undefined,
         {
-          entityId: params.id,
+          entityId: campaignId,
           entityType: 'campaign_content_ab_variants',
-          operationKey: getCreditOperationKey(req, 'CONTENT_AB_VARIANTS', 'campaign_content_ab_variants', params.id),
+          operationKey: getCreditOperationKey(req, 'CONTENT_AB_VARIANTS', 'campaign_content_ab_variants', campaignId),
         },
       )
       if (!abCreditCheck.ok) {
@@ -371,6 +449,83 @@ export async function POST(req: NextRequest, props: Params) {
       }
       abVariantsCharged = true
       abVariantsCharge = abCreditCheck
+    }
+
+    if (asyncRequested) {
+      const mediaSource = ['GENERATE', 'UPLOAD', 'MIXED'].includes(String(body.mediaSource))
+        ? body.mediaSource as 'GENERATE' | 'UPLOAD' | 'MIXED'
+        : 'MIXED'
+      const selectedMediaIds = Array.isArray(body.selectedMediaIds)
+        ? body.selectedMediaIds.filter((id: unknown): id is string => typeof id === 'string')
+        : null
+      try {
+        const queued = await enqueueCampaignApprovalPackageJob({
+          workspaceId,
+          campaignId,
+          requestedByUserId: userId,
+          idempotencyKey: operationKey,
+          language: bodyLanguage,
+          mediaSource,
+          selectedMediaIds,
+          credit: serializeCreditDeduction(creditCheck),
+        })
+
+        if (!queued.created) {
+          const released = await refundContentActionCharge(
+            userId,
+            creditCheck,
+            'CONTENT_PLAN_GENERATION',
+            'A content approval package job was already active; duplicate reservation released.',
+          )
+          if (!released) {
+            return NextResponse.json({
+              error: 'NEXUS found an existing content job but could not verify release of the duplicate reservation.',
+              code: 'DUPLICATE_RESERVATION_RELEASE_FAILED',
+              jobId: queued.job.id,
+            }, { status: 503 })
+          }
+        }
+        contentPlanCharged = false
+
+        const publicJob = toPublicAutomationJob(queued.job)
+        if (publicJob.canResume) {
+          after(async () => {
+            await processAutomationJobById(queued.job.id).catch((error) => {
+              console.error('[campaign-approval-package-job]', queued.job.id, error)
+            })
+          })
+        }
+
+        return NextResponse.json({
+          accepted: true,
+          reused: !queued.created,
+          jobId: queued.job.id,
+          job: publicJob,
+          creditReservation: {
+            creditsReserved: queued.created ? creditCheck.creditsUsed : 0,
+            creditsRemaining: creditCheck.creditsRemaining,
+            transactionId: queued.created ? creditCheck.transactionId ?? null : null,
+            status: queued.created ? 'RESERVED' : 'RELEASED_DUPLICATE',
+          },
+          message: 'NEXUS is building the copy and media-direction package in the background. Publishing and spend remain locked until approval.',
+        }, {
+          status: 202,
+          headers: {
+            'Cache-Control': 'private, no-store',
+            'Retry-After': '2',
+            'Location': `/api/automation/jobs/${queued.job.id}`,
+          },
+        })
+      } catch (error) {
+        const refunded = await refundAllRequestedContent('Content approval package job could not be queued.')
+        console.error('[campaign-approval-package-job-enqueue]', error)
+        return NextResponse.json({
+          error: 'NEXUS could not safely queue this work. Reserved credits were returned.',
+          code: 'AUTOMATION_JOB_ENQUEUE_FAILED',
+          refunded,
+          creditsUsed: refunded ? 0 : creditCheck.creditsUsed,
+        }, { status: 503 })
+      }
     }
 
     const brandName    = resolveContentPlanBrandName(campaign)
@@ -494,6 +649,9 @@ Target audience: ${targetAudience}
 Content pillars: ${pillarText}
 Tone: ${tone}
 Offer/CTA: ${offer}
+Business goal (a target to pursue, never an achieved result or proof): ${brandProfile?.businessGoal ?? 'Not provided'}
+Exact conversion destination: ${brandProfile?.conversionDestination ?? 'Not provided'}
+Exact lead-response process after conversion: ${brandProfile?.leadHandling ?? 'Not provided'}
 User-confirmed Brand Brain facts (the only factual source for claims):
 ${JSON.stringify(explicitBrandFacts.slice(0, 50), null, 2).slice(0, 8_000)}
 Audience pain points: ${(brandProfile?.audiencePainPoints ?? []).join(' | ') || 'Not provided'}
@@ -539,6 +697,8 @@ Generate platform-native social media posts. Each post must:
 - Use a meaningfully different hook structure, audience pain, message angle, and CTA from every other post. Rephrasing the same advice does not count as a new post.
 - Ground the post in one detailed audience segment, content angle, or funnel stage from the operating strategy context when available.
 - Match the CTA to the funnel handoff. If the strategy says the team must reply, qualify, book, or send an offer, make that next step clear without inventing a destination.
+- Treat every desiredOutcome, KPI target, business goal, and risk note as a target or hypothesis — never as achieved product proof. In particular, never claim reduced collection days, improved cash flow, higher conversion, saved time, or a smaller staffing need unless that exact measured result appears in verified proof.
+- When an exact conversion destination is provided, at least one conversion-stage caption must name that real next step (for example its booking form, WhatsApp, calendar, or trial). Generic CTAs such as "discover more", "learn about the solution", or "see how it works" do not satisfy the conversion handoff.
 - Adapt presentation to the platform without changing the saved customer, offer, or business type. LinkedIn must stay customer-facing for a consumer/service brand (education, community trust, or professional expertise); never turn it into internal administration, team workflow, ownership, handoff, or SaaS operations unless Brand Brain explicitly says the offer is operations software. Instagram should lead with a visual/saveable idea; short-form video should lead with a scene and retention hook.
 - Mention the brand only when it strengthens the message or CTA. Do not repeat the brand name mechanically in every post.
 - Treat missing proof, competitor data, tracking, or conversion details as a content/review gap. Never convert a gap into a factual claim.
@@ -594,9 +754,11 @@ Rules:
     // Safe in-process retry: a transient provider error (429/5xx/network) or a
     // slow first response no longer drops the user into a no-plan 502 — we retry
     // before writing any posts, so no duplicates and no second charge.
-    // Deterministic failures (truncated/malformed) short-circuit and refund.
+    // Common JSON wrappers are repaired locally; one malformed/provider retry
+    // is still safe because no SocialPost exists and the credit is charged once.
+    // Truncated output short-circuits and refunds.
     const { result: planResult, attempts: planAttempts, providerUsages } = await generateContentPlanWithRetry(
-      () => fetch('https://api.openai.com/v1/chat/completions', {
+      () => fetchAiProvider('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -728,7 +890,7 @@ Rules:
 
       return {
         workspaceId,
-        campaignId: params.id,
+        campaignId,
         platform: slot.platform as any,
         publishTarget: slot.publishTarget,
         caption,
@@ -753,7 +915,14 @@ Rules:
     // The renderer may assemble caption/video fields from several model keys.
     // Apply the field-aware truth policy to the FINAL persistence payload so
     // the reviewed copy is exactly what the database receives.
-    const postsToCreate = guardContentDraftTruth(renderedPostsToCreate, proofContext)
+    const postsToCreate = guardContentDraftTruth(
+      ensureContentPlanConversionHandoff(
+        renderedPostsToCreate,
+        strategyForContent,
+        brandProfile?.conversionDestination,
+      ),
+      proofContext,
+    )
 
     const saveGateIssues = postsToCreate.flatMap((post, index) =>
       validateContentPlanDraftForSave({
@@ -783,7 +952,10 @@ Rules:
     const semanticGate = validateContentPlanSemanticAlignment(
       postsToCreate,
       strategyForContent,
-      { brandFacts: explicitBrandFacts },
+      {
+        brandFacts: explicitBrandFacts,
+        conversionDestination: brandProfile?.conversionDestination,
+      },
     )
 
     if (!semanticGate.ok) {
@@ -812,12 +984,12 @@ Rules:
     // Recheck under an advisory lock at commit time. Concurrent generations
     // cannot consume more planned-post allowance than the owner's plan permits.
     await prisma.$transaction(async (tx) => {
-      const commitAllowance = await readLockedPlannedPostAllowance(tx, userId, params.id)
+      const commitAllowance = await readLockedPlannedPostAllowance(tx, userId, campaignId)
       if (postsToCreate.length > commitAllowance.remaining) {
         throw new Error(`POST_LIMIT_REACHED:${commitAllowance.limit}:${commitAllowance.periodEnd.toISOString()}`)
       }
       await (tx.socialPost as any).deleteMany({
-        where: { campaignId: params.id, workspaceId, status: 'DRAFT', publishedAt: null },
+        where: { campaignId, workspaceId, status: 'DRAFT', publishedAt: null },
       })
       await (tx.socialPost as any).createMany({ data: postsToCreate })
     })
@@ -866,7 +1038,7 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
   hookStyle: HOOK_STYLES[i % HOOK_STYLES.length],
 })).join('\n')}`
 
-        const bRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        const bRes = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -934,7 +1106,7 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
 
           return {
             workspaceId,
-            campaignId: params.id,
+            campaignId,
             platform: slot.platform as any,
             publishTarget: slot.publishTarget,
             caption,
@@ -998,7 +1170,7 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
           user.name ?? '',
           campaignName,
           postsToCreate.length,
-          params.id,
+          campaignId,
         ).catch(() => { /* non-fatal */ })
       }
     }).catch(() => { /* non-fatal */ })
@@ -1136,14 +1308,33 @@ export async function DELETE(req: NextRequest, props: Params) {
     })
     if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const deleted = await prisma.socialPost.deleteMany({
-      where: {
-        campaignId: params.id,
-        workspaceId: campaign.workspaceId,
-        status: 'DRAFT',
-        publishedAt: null,
-      },
-    })
+    const [deleted] = await prisma.$transaction([
+      prisma.socialPost.deleteMany({
+        where: {
+          campaignId: params.id,
+          workspaceId: campaign.workspaceId,
+          status: 'DRAFT',
+          publishedAt: null,
+        },
+      }),
+      prisma.automationJob.updateMany({
+        where: {
+          campaignId: params.id,
+          workspaceId: campaign.workspaceId,
+          kind: CAMPAIGN_APPROVAL_PACKAGE_JOB_KIND,
+          status: 'WAITING_FOR_APPROVAL',
+        },
+        data: {
+          status: 'CANCELLED',
+          currentStep: 'cancelled',
+          cancelledAt: new Date(),
+          leaseToken: null,
+          leaseExpiresAt: null,
+          errorCode: null,
+          lastError: 'The owner cleared the draft approval package.',
+        },
+      }),
+    ])
 
     return NextResponse.json({ success: true, deleted: deleted.count })
   } catch (err: any) {

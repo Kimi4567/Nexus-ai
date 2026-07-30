@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { after, NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
@@ -22,6 +22,15 @@ import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { createOpenAIProviderUsageCollector } from '@/lib/ai/providerUsageContext'
 import { summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
+import {
+  enqueueCampaignEngineJob,
+  findCampaignEngineJob,
+} from '@/lib/automationJobs/repository'
+import { processAutomationJobById } from '@/lib/automationJobs/processor'
+import {
+  serializeCreditDeduction,
+  toPublicAutomationJob,
+} from '@/lib/automationJobs/types'
 
 // Strategy generation makes two bounded provider calls in parallel. Production
 // evidence shows valid, contract-compliant Arabic packages can take longer than
@@ -55,6 +64,9 @@ export async function POST(req: NextRequest, props: Params) {
   const body = await req.json().catch(() => ({}))
   const force = body.force === true
   const language = body.language || 'ar'
+  const asyncRequested = req.headers?.get?.('prefer')
+    ?.split(',')
+    .some(value => value.trim().toLowerCase() === 'respond-async') === true
 
   const campaign = await prisma.campaign.findFirst({
     where: { id: params.id, workspace: { ownerId: userId } },
@@ -172,6 +184,44 @@ export async function POST(req: NextRequest, props: Params) {
   }
 
   let credit: CreditDeductionOk | null = null
+  const operationKey = getCreditOperationKey(
+    req,
+    'RUN_FULL_STRATEGY',
+    'campaign_strategy_rebuild',
+    params.id,
+  )
+
+  if (needsAiGeneration && asyncRequested) {
+    const existingJob = await findCampaignEngineJob({
+      workspaceId: campaign.workspaceId,
+      campaignId: params.id,
+      idempotencyKey: operationKey,
+    })
+    if (existingJob) {
+      const publicJob = toPublicAutomationJob(existingJob)
+      if (publicJob.canResume) {
+        after(async () => {
+          await processAutomationJobById(existingJob.id).catch((error) => {
+            console.error('[campaign-engine-job-replay]', existingJob.id, error)
+          })
+        })
+      }
+      return NextResponse.json({
+        accepted: !publicJob.terminal,
+        reused: true,
+        jobId: existingJob.id,
+        job: publicJob,
+      }, {
+        status: publicJob.status === 'COMPLETED' ? 200 : 202,
+        headers: {
+          'Cache-Control': 'private, no-store',
+          'Retry-After': '2',
+          'Location': `/api/automation/jobs/${existingJob.id}`,
+        },
+      })
+    }
+  }
+
   if (needsAiGeneration) {
     const rateLimitResponse = await enforceBillableAiRateLimit(userId, 'RUN_FULL_STRATEGY')
     if (rateLimitResponse) return rateLimitResponse
@@ -182,18 +232,93 @@ export async function POST(req: NextRequest, props: Params) {
       {
         entityId: params.id,
         entityType: 'campaign_strategy_rebuild',
-        operationKey: getCreditOperationKey(req, 'RUN_FULL_STRATEGY', 'campaign_strategy_rebuild', params.id),
+        operationKey,
       },
     )
     if (!creditCheck.ok) return NextResponse.json(creditCheck, { status: creditCheckHttpStatus(creditCheck) })
     credit = creditCheck
   }
 
+  if (needsAiGeneration && asyncRequested && credit) {
+    try {
+      const queued = await enqueueCampaignEngineJob({
+        workspaceId: campaign.workspaceId,
+        campaignId: params.id,
+        requestedByUserId: userId,
+        idempotencyKey: operationKey,
+        language,
+        force,
+        credit: serializeCreditDeduction(credit),
+      })
+
+      if (!queued.created) {
+        const duplicateRelease = await refundCreditDeduction({
+          userId,
+          action: 'RUN_FULL_STRATEGY',
+          deduction: credit,
+          reason: 'A campaign engine job was already active; duplicate reservation released.',
+        })
+        if (!duplicateRelease.ok) {
+          return NextResponse.json({
+            error: 'NEXUS found an existing job but could not verify release of the duplicate reservation.',
+            code: 'DUPLICATE_RESERVATION_RELEASE_FAILED',
+            jobId: queued.job.id,
+            creditsUsed: credit.creditsUsed,
+          }, { status: 503 })
+        }
+      }
+
+      const publicJob = toPublicAutomationJob(queued.job)
+      if (publicJob.canResume) {
+        after(async () => {
+          await processAutomationJobById(queued.job.id).catch((error) => {
+            console.error('[campaign-engine-job]', queued.job.id, error)
+          })
+        })
+      }
+
+      return NextResponse.json({
+        accepted: true,
+        reused: !queued.created,
+        jobId: queued.job.id,
+        job: publicJob,
+        creditReservation: {
+          creditsReserved: queued.created ? credit.creditsUsed : 0,
+          creditsRemaining: credit.creditsRemaining,
+          transactionId: queued.created ? credit.transactionId ?? null : null,
+          status: queued.created ? 'RESERVED' : 'RELEASED_DUPLICATE',
+        },
+        message: 'NEXUS is preparing the campaign in the background. You can leave this page safely.',
+      }, {
+        status: 202,
+        headers: {
+          'Cache-Control': 'private, no-store',
+          'Retry-After': '2',
+          'Location': `/api/automation/jobs/${queued.job.id}`,
+        },
+      })
+    } catch (error) {
+      const refund = await refundCreditDeduction({
+        userId,
+        action: 'RUN_FULL_STRATEGY',
+        deduction: credit,
+        reason: 'Campaign engine job could not be queued.',
+      })
+      console.error('[campaign-engine-job-enqueue]', error)
+      return NextResponse.json({
+        error: 'NEXUS could not safely queue this work. Reserved credits were returned.',
+        code: 'AUTOMATION_JOB_ENQUEUE_FAILED',
+        refunded: refund.ok && refund.status === 'refunded',
+        creditsUsed: refund.ok && ['refunded', 'noop'].includes(refund.status) ? 0 : credit.creditsUsed,
+      }, { status: 503 })
+    }
+  }
+
   const usageCollector = createOpenAIProviderUsageCollector()
   const currentProviderEconomics = () => {
     const calls = usageCollector.snapshot()
     if (calls.length === 0) return undefined
-    const usage = summarizeOpenAITextUsage('gpt-4o-mini', calls)
+    const usage = summarizeOpenAITextUsage('gpt-4o', calls)
     return { providerCostUsd: usage.estimatedProviderCostUsd, providerPricingVersion: usage.pricingVersion, providerUsage: usage }
   }
 

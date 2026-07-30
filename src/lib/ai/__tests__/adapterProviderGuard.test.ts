@@ -27,11 +27,15 @@ import { getImageProviderUnavailablePayload, isImageProviderConfigured } from '.
 
 const originalApiKey = process.env.OPENAI_API_KEY
 const originalFalKey = process.env.FAL_KEY
+const originalGatewayKey = process.env.AI_GATEWAY_API_KEY
+const originalOidcToken = process.env.VERCEL_OIDC_TOKEN
 
 beforeEach(() => {
   vi.clearAllMocks()
   delete process.env.OPENAI_API_KEY
   delete process.env.FAL_KEY
+  delete process.env.AI_GATEWAY_API_KEY
+  delete process.env.VERCEL_OIDC_TOKEN
 })
 
 afterEach(() => {
@@ -39,6 +43,10 @@ afterEach(() => {
   else process.env.OPENAI_API_KEY = originalApiKey
   if (originalFalKey === undefined) delete process.env.FAL_KEY
   else process.env.FAL_KEY = originalFalKey
+  if (originalGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY
+  else process.env.AI_GATEWAY_API_KEY = originalGatewayKey
+  if (originalOidcToken === undefined) delete process.env.VERCEL_OIDC_TOKEN
+  else process.env.VERCEL_OIDC_TOKEN = originalOidcToken
 })
 
 describe('AI adapter provider guard', () => {
@@ -59,10 +67,24 @@ describe('AI adapter provider guard', () => {
     expect(mockGenerateScript).toHaveBeenCalledWith('brief')
   })
 
+  it('accepts Vercel OIDC without requiring a direct OpenAI key', async () => {
+    process.env.VERCEL_OIDC_TOKEN = 'oidc-token'
+    mockGenerateScript.mockResolvedValue('gateway output')
+
+    await expect(adapter.generateScript('brief')).resolves.toBe('gateway output')
+    expect(mockGenerateScript).toHaveBeenCalledWith('brief')
+  })
+
   it('accepts FAL as a real image provider even without OpenAI', () => {
     process.env.FAL_KEY = 'test-fal-key'
 
     expect(isImageProviderConfigured()).toBe(true)
+  })
+
+  it('does not mistake a text-only Gateway credential for an image provider', () => {
+    process.env.VERCEL_OIDC_TOKEN = 'oidc-token'
+
+    expect(isImageProviderConfigured()).toBe(false)
   })
 
   it('returns a truthful no-charge payload when every image provider is absent', () => {

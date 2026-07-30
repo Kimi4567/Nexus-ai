@@ -163,13 +163,22 @@ export function sanitizeStrategyApprovalAiOutput(input: {
     strategyType,
     organicPostCount: typeof raw.organicPostCount === 'number' ? raw.organicPostCount : undefined,
     hasLeadHandling: typeof brand.leadHandling === 'string' && brand.leadHandling.trim().length > 0,
+    leadHandling: typeof brand.leadHandling === 'string' ? brand.leadHandling : null,
     hasConversionDestination: hasUsableConversionDestination(
       brand.conversionDestination,
       typeof input.campaign.goal === 'string' ? input.campaign.goal : null,
     ),
+    conversionDestination: typeof brand.conversionDestination === 'string'
+      ? brand.conversionDestination
+      : null,
     allowedCompetitors: Array.isArray(brand.competitors)
       ? brand.competitors.filter((value): value is string => typeof value === 'string')
       : [],
+    goal: typeof brand.businessGoal === 'string' && brand.businessGoal.trim()
+      ? brand.businessGoal
+      : typeof input.campaign.goal === 'string'
+        ? input.campaign.goal
+        : null,
   }) as JsonRecord
 
   return normalizedJson(

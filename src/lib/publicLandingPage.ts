@@ -1,5 +1,8 @@
 import { getLandingPageGate } from '@/lib/landingPageAccess'
-import type { PublicLandingPageSnapshot } from '@/lib/landingPageContract'
+import {
+  isPublicLandingPageSnapshot,
+  type PublicLandingPageSnapshot,
+} from '@/lib/landingPageContract'
 import { getPublicLandingExperimentState } from '@/lib/landingPageExperimentAccess'
 import { assignLandingExperimentVariant, createLandingExperimentToken } from '@/lib/landingPageExperiment'
 import { prisma } from '@/lib/prisma'
@@ -72,9 +75,17 @@ export async function resolvePublicLandingPage(args: {
   if (!page || page.status !== 'PUBLISHED' || !page.publishedSnapshot || !page.publishedHash) {
     return { ok: false, status: 404, error: 'Landing page not found' }
   }
+  if (!isPublicLandingPageSnapshot(page.publishedSnapshot, args.publicId)) {
+    return {
+      ok: false,
+      status: 503,
+      error: 'This campaign page is temporarily unavailable.',
+      code: 'LANDING_PAGE_SNAPSHOT_INVALID',
+    }
+  }
 
   const measurementEligible = args.measurementEligible !== false
-  let renderedSnapshot = page.publishedSnapshot as unknown as PublicLandingPageSnapshot
+  let renderedSnapshot: PublicLandingPageSnapshot = page.publishedSnapshot
   let renderedHash = page.publishedHash
   let publicExperiment: PublicLandingExperimentAssignment | null = null
 
@@ -108,9 +119,18 @@ export async function resolvePublicLandingPage(args: {
           fingerprintParts: args.requesterParts || ['unknown'],
           challengerAllocationPercent: experiment.challengerAllocationPercent,
         })
-        renderedSnapshot = (variant === 'CHALLENGER'
+        const assignedSnapshot = (variant === 'CHALLENGER'
           ? experiment.challengerSnapshot
-          : experiment.controlSnapshot) as unknown as PublicLandingPageSnapshot
+          : experiment.controlSnapshot)
+        if (!isPublicLandingPageSnapshot(assignedSnapshot, args.publicId)) {
+          return {
+            ok: false,
+            status: 503,
+            error: 'This campaign page is temporarily unavailable.',
+            code: 'LANDING_PAGE_SNAPSHOT_INVALID',
+          }
+        }
+        renderedSnapshot = assignedSnapshot
         renderedHash = variant === 'CHALLENGER' ? experiment.challengerHash : experiment.controlHash
         publicExperiment = {
           variant,

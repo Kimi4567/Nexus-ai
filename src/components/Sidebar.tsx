@@ -228,6 +228,8 @@ const JOURNEY_ICONS: Record<MarketingJourneyStageId, React.ReactNode> = {
   results: Icons.analytics,
 }
 
+const ADVANCED_NAV_STORAGE_KEY = 'nexus.sidebar.advanced'
+
 // ── Main Sidebar ───────────────────────────────────────────────
 export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
@@ -236,6 +238,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   // locale is used for language toggle button logic
   const [userMenuOpen, setUserMenuOpen] = React.useState(false)
   const [pendingProposals, setPendingProposals] = React.useState(0)
+  const [advancedOpen, setAdvancedOpen] = React.useState(false)
   const pendingFetchStartedAtRef = React.useRef(0)
   const pendingFetchInFlightRef = React.useRef(false)
 
@@ -244,6 +247,25 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   const initial = displayName.charAt(0).toUpperCase()
 
   const { status: billingStatus, creditsRemaining, creditsMax, isUnlimited, loading: billingLoading } = useBillingStatus()
+
+  React.useEffect(() => {
+    const journeyStage = resolveMarketingJourneyStage(pathname)
+    const isAdvancedRoute = Boolean(journeyStage && journeyStage !== 'results')
+      || pathname === '/operations'
+      || pathname.startsWith('/operations/')
+      || pathname === '/leads'
+      || pathname.startsWith('/leads/')
+      || pathname === '/landing-pages'
+      || pathname.startsWith('/landing-pages/')
+
+    let savedOpen = false
+    try {
+      savedOpen = window.localStorage.getItem(ADVANCED_NAV_STORAGE_KEY) === 'true'
+    } catch {
+      // Navigation remains usable when storage is unavailable.
+    }
+    setAdvancedOpen(isAdvancedRoute || savedOpen)
+  }, [pathname])
 
   // Fetch the unified pending decision count for the sidebar badge.
   React.useEffect(() => {
@@ -298,22 +320,25 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   })
 
   const isPaid = billingTruth.showManageSubscription
-  const navGroups: NavGroupConfig[] = [
+  const primaryNavGroups: NavGroupConfig[] = [
     {
-      key: 'overview',
-      labelAr: 'مساحة العمل',
-      labelEn: 'Workspace',
+      key: 'owner-workspace',
+      labelAr: 'مساحة عملك',
+      labelEn: 'Your workspace',
       items: [
         { href: '/dashboard', labelAr: 'اليوم', labelEn: 'Today', icon: Icons.dashboard },
-        { href: '/approvals', labelAr: 'الموافقات', labelEn: 'Approvals', icon: Icons.settings, badgeKey: pendingProposals > 0 ? `count:${pendingProposals}` : undefined, badgeColor: '#8B5CF6' },
+        { href: '/approvals', labelAr: 'قراراتي', labelEn: 'My decisions', icon: Icons.settings, badgeKey: pendingProposals > 0 ? `count:${pendingProposals}` : undefined, badgeColor: '#8B5CF6' },
+        { href: '/analytics', labelAr: 'النتائج', labelEn: 'Results', icon: Icons.analytics },
+        { href: '/connections', labelAr: 'الإعداد والربط', labelEn: 'Settings & connections', icon: Icons.connections },
       ],
     },
+  ]
+  const advancedNavGroups: NavGroupConfig[] = [
     {
-      key: 'workflow',
-      labelAr: 'مسار التسويق',
-      labelEn: 'Marketing workflow',
-      separatorBefore: true,
-      items: MARKETING_JOURNEY.map(stage => ({
+      key: 'marketing-tools',
+      labelAr: 'أدوات التسويق',
+      labelEn: 'Marketing tools',
+      items: MARKETING_JOURNEY.filter(stage => stage.id !== 'results').map(stage => ({
         href: stage.href,
         labelAr: stage.label.ar,
         labelEn: stage.label.en,
@@ -326,13 +351,45 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       labelEn: 'System',
       separatorBefore: true,
       items: [
-        { href: '/operations', labelAr: 'مركز العمليات', labelEn: 'Operations center', icon: Icons.dashboard, badgeKey: '24/7', badgeColor: '#22C55E' },
+        { href: '/operations', labelAr: 'مركز العمليات', labelEn: 'Operations center', icon: Icons.dashboard },
         { href: '/leads', labelAr: 'العملاء وCRM', labelEn: 'Leads & CRM', icon: Icons.leads },
         { href: '/landing-pages', labelAr: 'صفحات الهبوط', labelEn: 'Landing pages', icon: Icons.landingPages },
-        { href: '/connections', labelAr: 'الربط', labelEn: 'Connections', icon: Icons.connections },
       ],
     },
   ]
+
+  const toggleAdvanced = () => {
+    const nextOpen = !advancedOpen
+    setAdvancedOpen(nextOpen)
+    try {
+      window.localStorage.setItem(ADVANCED_NAV_STORAGE_KEY, String(nextOpen))
+    } catch {
+      // The disclosure still works for this session without persistence.
+    }
+  }
+
+  const renderNavGroups = (groups: NavGroupConfig[]) => groups.map((group) => (
+    <div key={group.key} className="space-y-0.5">
+      {group.separatorBefore && <div className="mx-2 my-2.5 h-px bg-white/10" />}
+      {!collapsed && group.labelEn ? (
+        <p className="px-3 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">
+          {locale === 'ar' ? group.labelAr : group.labelEn}
+        </p>
+      ) : null}
+      {group.items.map((item) => (
+        <NavItem
+          key={`${item.href}-${item.labelKey || item.labelEn || item.labelAr}`}
+          href={item.href}
+          label={item.labelKey ? t(item.labelKey) : (locale === 'ar' ? (item.labelAr || item.labelEn || '') : (item.labelEn || item.labelAr || ''))}
+          icon={item.icon}
+          badge={item.badgeKey?.startsWith('count:') ? item.badgeKey.slice('count:'.length) : item.badgeKey ? t(item.badgeKey) : undefined}
+          badgeColor={item.badgeColor}
+          dot={item.dot}
+          {...sharedProps}
+        />
+      ))}
+    </div>
+  ))
 
   return (
     <aside
@@ -371,28 +428,43 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
 
       {/* Scrollable nav */}
       <nav className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-3 py-2 pb-5" aria-label={t('sidebar.primaryNavigation')}>
-        {navGroups.map((group) => (
-          <div key={group.key} className="space-y-0.5">
-            {group.separatorBefore && <div className="mx-2 my-2.5 h-px bg-white/10" />}
-            {!collapsed && group.labelEn ? (
-              <p className="px-3 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">
-                {locale === 'ar' ? group.labelAr : group.labelEn}
-              </p>
-            ) : null}
-            {group.items.map((item) => (
-              <NavItem
-                key={`${item.href}-${item.labelKey || item.labelEn || item.labelAr}`}
-                href={item.href}
-                label={item.labelKey ? t(item.labelKey) : (locale === 'ar' ? (item.labelAr || item.labelEn || '') : (item.labelEn || item.labelAr || ''))}
-                icon={item.icon}
-                badge={item.badgeKey?.startsWith('count:') ? item.badgeKey.slice('count:'.length) : item.badgeKey ? t(item.badgeKey) : undefined}
-                badgeColor={item.badgeColor}
-                dot={item.dot}
-                {...sharedProps}
-              />
-            ))}
+        {renderNavGroups(primaryNavGroups)}
+
+        <div className="mx-2 my-2.5 h-px bg-white/10" />
+        <button
+          type="button"
+          onClick={toggleAdvanced}
+          aria-expanded={advancedOpen}
+          aria-controls="nexus-advanced-navigation"
+          className={`flex h-9 w-full items-center rounded-xl text-[11px] font-bold text-slate-400 transition hover:bg-white/10 hover:text-white ${collapsed ? 'justify-center px-0' : 'gap-2 px-3'}`}
+          title={locale === 'ar' ? 'أدوات متقدمة' : 'Advanced tools'}
+        >
+          <span className="flex-shrink-0">{Icons.strategy}</span>
+          {!collapsed && (
+            <>
+              <span className="flex-1 text-start">{locale === 'ar' ? 'أدوات متقدمة' : 'Advanced tools'}</span>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                className={`transition-transform ${advancedOpen ? 'rotate-180' : ''}`}
+                aria-hidden="true"
+              >
+                <path d="M2.5 4.5L6 8l3.5-3.5" />
+              </svg>
+            </>
+          )}
+        </button>
+
+        {advancedOpen && (
+          <div id="nexus-advanced-navigation" className="mt-1.5 space-y-0.5">
+            {renderNavGroups(advancedNavGroups)}
           </div>
-        ))}
+        )}
 
         {/* Legacy diagnostics stay out of primary navigation until they are real
             user-facing workflows: /sentinel, /vex, /brand/score-history. */}

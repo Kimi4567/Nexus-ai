@@ -3,6 +3,7 @@ import {
   summarizeOpenAITextUsage,
   type ProviderUsageSummary,
 } from '@/lib/ai/providerEconomics'
+import { fetchAiProvider } from '@/lib/ai/providerFetch'
 import type {
   PlatformImageFormat,
   PlatformImageFormatValidation,
@@ -461,7 +462,7 @@ ${input.requireProductAdStructure && input.requiresRealProductHero === false ? '
   ]
   const usageCalls: ReturnType<typeof readOpenAIChatUsage>[] = []
   const requestReview = async () => {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

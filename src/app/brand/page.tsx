@@ -602,7 +602,7 @@ function BrandBrainInner() {
   const searchParams = useSearchParams()
   const fromBrief = searchParams?.get('from') === 'brief'
   const { locale, dir, t } = useI18n()
-  const { brand, contract, loading, error, saving, saveBrand, refetch } = useBrandBrain()
+  const { brand, contract, loading, error, saving, saveBrand, lastSaveImpact, refetch } = useBrandBrain()
   // PR-1D: track whether a loaded brand has been applied to the form, so we never
   // flash the "Needs Data" empty state between load-complete and form hydration.
   const [hydrated, setHydrated] = useState(false)
@@ -1402,6 +1402,30 @@ function BrandBrainInner() {
                     : 'Saving Brand Brain and verifying the new revision. Stay on this page; this save creates no strategy and spends no credits.'}
                 </div>
               )}
+
+              {lastSaveImpact?.required ? (
+                <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3" role="status" aria-live="polite">
+                  <div className="flex min-w-0 items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                    <div>
+                      <p className="text-[12px] font-black text-amber-950">
+                        {locale === 'ar'
+                          ? `تم إيقاف ${lastSaveImpact.competitorsPaused} مراقبة منافس بعد تغيير هوية البراند`
+                          : `${lastSaveImpact.competitorsPaused} competitor monitor(s) paused after the brand identity changed`}
+                      </p>
+                      <p className="mt-1 text-[10px] font-semibold leading-5 text-amber-800">
+                        {locale === 'ar'
+                          ? 'حُفظ التاريخ القديم كمرجع فقط، ولن يدخل في قرارات البراند الحالي. راجع المنافسين وأكّد المناسب منهم لإنشاء Baseline جديد.'
+                          : 'Old history is preserved as reference only and cannot enter current-brand decisions. Review competitors and confirm the relevant ones to create a new baseline.'}
+                      </p>
+                    </div>
+                  </div>
+                  <Link href="/brand/competitors" className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-amber-900 px-3 text-[10px] font-black text-white">
+                    {locale === 'ar' ? 'راجع المنافسين' : 'Review competitors'}
+                    <ArrowRight className="h-3.5 w-3.5 nx-directional-arrow" />
+                  </Link>
+                </div>
+              ) : null}
 
               {brandTruthBlocked && (
                 <div

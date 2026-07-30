@@ -160,6 +160,79 @@ describe('marketingQualityGate', () => {
     expect(report.blockers.map(item => item.code)).toContain('platform_outside_reviewed_scope')
   })
 
+  it('does not mistake أسرع for an unsupported family audience', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        positioning: 'قرارات أسرع لأصحاب الشركات عند مراجعة التدفق النقدي.',
+        keyMessage: 'راجع الفواتير والتدفق النقدي لاتخاذ قرار أسرع.',
+      },
+      brand: {
+        ...dentalBrand,
+        brandName: 'ميزان فلو',
+        industry: 'برمجيات إدارة التدفق النقدي',
+        description: 'منصة تساعد أصحاب الشركات على مراجعة الفواتير والتدفق النقدي.',
+        primaryOffer: 'تجربة مجانية لمدة 14 يومًا مع الإعداد.',
+        targetAudience: 'أصحاب الشركات والمديرون الماليون في شركات الخدمات والتقنية.',
+      },
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-30T00:00:00.000Z',
+    })
+
+    expect(report.blockers.map(item => item.code)).not.toContain('ungrounded_audience_expansion')
+  })
+
+  it('blocks a strategy that contradicts the reviewed conversion path, goal, or response owner', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        businessObjective: {
+          primary: 'Increase demo bookings',
+          marketing: 'Increase awareness',
+          conversionAction: 'The conversion destination is not set yet.',
+          expectedUserAction: 'Confirm the destination before execution.',
+        },
+        contentAnglesDetailed: [{
+          ...groundedStrategy.contentAnglesDetailed[0],
+          responseHandoff: 'Customer success follows the saved process.',
+        }],
+        riskNotes: ['Funnel risk with missing conversion destination.'],
+        funnelStages: [{
+          nextStep: 'Sales team engages with article readers.',
+        }],
+      },
+      brand: {
+        ...dentalBrand,
+        businessGoal: 'Book 30 qualified demos in 90 days and convert 20% to paid subscriptions.',
+        conversionDestination: 'Bilingual landing page with a demo form and WhatsApp handoff.',
+        leadHandling: 'Customer success qualifies each request and books the setup session.',
+      },
+      goal: 'leads',
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-30T00:00:00.000Z',
+    })
+
+    const codes = report.blockers.map(item => item.code)
+    expect(codes).toContain('known_conversion_destination_marked_missing')
+    expect(report.blockers.some(item => item.path === 'strategy.riskNotes[0]')).toBe(true)
+    expect(codes).toContain('business_goal_drift')
+    expect(codes).toContain('lead_handoff_conflicts_with_brand')
+  })
+
+  it('still blocks أسر as an explicit unsupported family audience', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        targetAudienceRefined: 'أسر في أبوظبي تبحث عن إرشاد علاجي واضح.',
+      },
+      brand: dentalBrand,
+      allowedPlatforms: ['INSTAGRAM'],
+      checkedAt: '2026-07-30T00:00:00.000Z',
+    })
+
+    expect(report.blockers.map(item => item.code)).toContain('ungrounded_audience_expansion')
+  })
+
   it('blocks a reviewed platform that disappears from the strategy plan', () => {
     const report = reviewStrategyGrounding({
       strategy: groundedStrategy,

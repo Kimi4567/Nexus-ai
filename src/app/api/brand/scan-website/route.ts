@@ -28,6 +28,7 @@ import { assertPublicWebsiteUrl, normalizePublicWebsiteUrl } from '@/lib/publicW
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { readOpenAIChatUsage, summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
+import { fetchAiProvider } from '@/lib/ai/providerFetch'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -176,7 +177,7 @@ export async function POST(req: NextRequest) {
     chargedCredit = creditResult
 
     // Send to GPT-4o for extraction via direct fetch
-    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+    const openaiRes = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

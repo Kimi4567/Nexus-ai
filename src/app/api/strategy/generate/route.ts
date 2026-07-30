@@ -18,9 +18,10 @@ import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { captureOperationalError } from '@/lib/observability/operationalError'
 import { readOpenAIChatUsage, summarizeOpenAITextUsage, type OpenAITextUsage } from '@/lib/ai/providerEconomics'
+import { fetchAiProvider } from '@/lib/ai/providerFetch'
 
 async function callOpenAI(prompt: string): Promise<{ result: any; usage: OpenAITextUsage }> {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -33,11 +34,14 @@ async function callOpenAI(prompt: string): Promise<{ result: any; usage: OpenAIT
       max_tokens: 4000,
       response_format: { type: 'json_object' },
     }),
+  }, {
+    providerName: 'OpenAI strategy generator',
+    timeoutMs: 75_000,
   })
   // Defensive (Trust Sprint #1): a non-2xx or malformed OpenAI response must
   // reject — never silently parse to `{}` and look like a successful strategy.
   const data = await response.json().catch(() => null)
-  if (!response.ok || !data) {
+  if (!data) {
     throw new Error(`OpenAI request failed (${response.status})`)
   }
   const content = data?.choices?.[0]?.message?.content

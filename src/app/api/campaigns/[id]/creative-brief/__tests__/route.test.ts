@@ -66,6 +66,7 @@ const campaign = {
   goal: 'leads',
   audience: 'Founders',
   tone: 'clear',
+  platforms: ['LINKEDIN'],
   aiOutput: {
     strategy: { keyMessage: 'A clear offer' },
     language: 'en',
@@ -203,6 +204,9 @@ describe('POST /api/campaigns/[id]/creative-brief — provider and credit orderi
       }),
     )
     expect(mockGenerateVisualConcepts).toHaveBeenCalledTimes(1)
+    expect(mockGenerateVisualConcepts).toHaveBeenCalledWith(expect.objectContaining({
+      platforms: ['LINKEDIN'],
+    }))
     expect(mockRefund).not.toHaveBeenCalled()
   })
 })

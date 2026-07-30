@@ -100,6 +100,23 @@ export const TEXT_FREE_BACKGROUND_IMAGE_CONSTRAINTS = `TEXT-FREE BACKGROUND CONT
 const NON_RASTER_SAFE_CONCEPT_PATTERN = /\b(?:ui|screens?|interfaces?|dashboards?|diagrams?|charts?|graphs?|infographics?|icons?|metric\s*cards?|data\s*visualizations?|glass\s*boards?|signage|signs?|logos?|words?|letters?|numbers?|typography|reports?|laptops?|computers?|digital\s*devices?)\b|(?:واجهة|واجهات|شاشة|شاشات|لوحة\s*معلومات|لوحات\s*معلومات|مخطط|مخططات|رسم\s*بياني|رسوم\s*بيانية|إنفوجرافيك|انفوجرافيك|أيقونات|ايقونات|رموز|تقارير|حاسوب|كمبيوتر|لابتوب|أجهزة\s*رقمية|نص|نصوص|شعار|شعارات|حروف|أرقام)/i
 
 /**
+ * Content-plan directions already contain a reviewed, concrete visual subject
+ * before their trailing safety exclusions. Preserve that subject instead of
+ * replacing it with a broad industry fallback simply because the exclusions
+ * mention forbidden screens, text, or logos.
+ */
+export function extractTextFreeSceneFromCreativeDirection(value?: string | null): string | null {
+  if (typeof value !== 'string') return null
+  const clean = value.replace(/\s+/g, ' ').trim()
+  if (!clean) return null
+
+  const usingClause = clean.match(/\busing\s+(.+?)(?=\.\s*(?:use|do|avoid|exclude)\b|$)/i)?.[1]?.trim()
+  if (!usingClause || NON_RASTER_SAFE_CONCEPT_PATTERN.test(usingClause)) return null
+
+  return `${usingClause}, arranged as one clear editorial hero composition with generous negative space`
+}
+
+/**
  * Image models often turn dashboards, charts, and infographic requests into
  * invented raster text or fake metrics. Convert those directions into a
  * tangible scene before the provider ever sees them.
@@ -662,9 +679,11 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
     brandName: ctx.brandName || 'Brand',
     language,
   })
+  const reviewedDirectionScene = extractTextFreeSceneFromCreativeDirection(ctx.creativeDirection)
   const concept: VisualConcept = {
     ...extractedConcept,
-    centralElement: normalizeTextFreeCentralElement(extractedConcept.centralElement, category, conceptText),
+    centralElement: reviewedDirectionScene
+      || normalizeTextFreeCentralElement(extractedConcept.centralElement, category, conceptText),
   }
 
   if (process.env.NODE_ENV !== 'production') {

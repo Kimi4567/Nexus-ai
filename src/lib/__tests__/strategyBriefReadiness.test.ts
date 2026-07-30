@@ -38,6 +38,14 @@ describe('getStrategyBriefReadiness', () => {
     expect(hasUsableConversionDestination('https://example.com/request-design', 'leads')).toBe(true)
   })
 
+  it('recognizes reviewed Arabic landing-page, form, WhatsApp, and booking destinations', () => {
+    expect(hasUsableConversionDestination(
+      'صفحة هبوط ثنائية اللغة مع نموذج حجز Demo، ثم تحويل العميل المؤهل إلى واتساب أو تقويم المبيعات',
+      'leads',
+    )).toBe(true)
+    expect(hasUsableConversionDestination('سيتم إنشاء صفحة الهبوط لاحقًا', 'leads')).toBe(false)
+  })
+
   it('allows an organic-ready brand and treats missing proof as a warning only', () => {
     const result = getStrategyBriefReadiness({
       mode: 'organic',

@@ -27,6 +27,7 @@ import {
   type ProviderUsageSummary,
 } from '@/lib/ai/providerEconomics'
 import { recordOpenAIProviderUsage } from '@/lib/ai/providerUsageContext'
+import { fetchAiProvider } from '@/lib/ai/providerFetch'
 // PR-S1c-3 — deterministic Strategy Order + Deliverables Contract types (display/scope only).
 import type { StrategyOrder, StrategyDeliverables } from '@/lib/strategy/strategyOrder'
 
@@ -584,44 +585,23 @@ export function parseStrategistJsonContent(content: string): unknown {
   return JSON.parse(normalized)
 }
 
-function aiProviderRequestError(status: number, providerName: StrategistProviderConfig['providerName']): Error {
-  if (status === 401 || status === 403) {
-    return new Error(
-      `${providerName} authentication failed (${status}). Refresh the configured provider credentials before running live generation.`,
-    )
-  }
-  if (status === 429) {
-    return new Error(`${providerName} was rate-limited or has no available quota (429). Check provider limits before retrying.`)
-  }
-  return new Error(`${providerName} request failed (${status}).`)
-}
-
 async function fetchStrategistCompletion(
   provider: StrategistProviderConfig,
   requestBody: Record<string, unknown>,
   providerTimeoutMs: number,
 ): Promise<Response> {
-  const maxAttempts = 3
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const response = await fetch(provider.endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${provider.token}`,
-      },
-      body: JSON.stringify(requestBody),
-      signal: AbortSignal.timeout(providerTimeoutMs),
-    })
-    if (response.status !== 429 || attempt === maxAttempts) return response
-
-    const retryAfterSeconds = Number(response.headers.get('retry-after'))
-    const delayMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-      ? Math.min(retryAfterSeconds * 1000, 60_000)
-      : attempt === 1 ? 15_000 : 45_000
-    await new Promise(resolve => setTimeout(resolve, delayMs))
-  }
-
-  throw new Error(`${provider.providerName} retry loop ended unexpectedly.`)
+  return fetchAiProvider(provider.endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${provider.token}`,
+    },
+    body: JSON.stringify(requestBody),
+  }, {
+    providerName: provider.providerName,
+    timeoutMs: providerTimeoutMs,
+    maxAttempts: 3,
+  })
 }
 
 async function callOpenAI(
@@ -660,7 +640,6 @@ async function callOpenAI(
   }
 
   const response = await fetchStrategistCompletion(provider, requestBody, providerTimeoutMs)
-  if (!response.ok) throw aiProviderRequestError(response.status, provider.providerName)
   const data = await response.json()
   recordOpenAIProviderUsage(data.usage)
   const content = data.choices?.[0]?.message?.content?.trim()
@@ -1166,6 +1145,14 @@ export function buildStrategistQualityRepairPrompt(
           'UNGROUNDED BRAND-CONTEXT REPAIR (binding): rewrite every affected path using only facts stated in the authoritative Brand Brain context.',
           'Do not add occupations, work/office/meeting use, lifestyles, cultural or heritage attributes, materials, product properties, freshness timing, or outcomes unless those exact facts are present in the authoritative context.',
           'For audience segment labels, reuse the reviewed target-audience wording and distinguish segments only by a documented pain, objection, or decision stage. Do not invent a new demographic or use case.',
+        ].join('\n')
+      : '',
+    issues.issueCodes.includes('ungrounded_audience_expansion')
+      ? [
+          'UNGROUNDED AUDIENCE REPAIR (binding): remove every unsupported demographic or audience segment named by the validator from the complete JSON.',
+          `The only authoritative audience is: ${brief.targetAudience}.`,
+          'Reuse that reviewed audience wording. You may distinguish people only by a documented pain, objection, buying role, or decision stage already present in Brand Brain; do not add family status, children, age groups, relocation status, occupations, industries, or use cases.',
+          'An explicit hypothesis label does not make an unsupported demographic acceptable. Rewrite the segment itself so it stays inside the reviewed audience.',
         ].join('\n')
       : '',
   ].filter(Boolean)

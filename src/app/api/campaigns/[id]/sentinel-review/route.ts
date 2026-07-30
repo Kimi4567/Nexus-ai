@@ -97,27 +97,32 @@ export async function POST(req: NextRequest, props: Params) {
       brand?.customerLifetimeValue,
       brand?.grossMargin,
     ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-    const strategy = guardStrategyKpis(
-      guardStrategyTruthContract(
+    // Scrub unsupported model-invented KPI figures first, then re-apply the
+    // reviewed Brand Brain contract. Reversing this order would incorrectly
+    // scrub the user's own measurable business goal from businessObjective.
+    const strategy = guardStrategyTruthContract(
+      guardStrategyKpis(
         rawStrategy as Record<string, unknown>,
-        proofContext,
-        {
-          allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms : [],
-          language: language || (aiOutput.language as string | undefined) || 'ar',
-          strategyType: strategyScope.type,
-          organicPostCount: typeof aiOutput.strategyDeliverables?.organicPostCount === 'number'
-            ? aiOutput.strategyDeliverables.organicPostCount
-            : null,
-          hasLeadHandling: Boolean(brand?.leadHandling),
-          hasConversionDestination: hasUsableConversionDestination(brand?.conversionDestination, campaign.goal),
-          hasBudget: Boolean(brand?.marketingBudget),
-          budgetText: brand?.marketingBudget || null,
-          allowedCompetitors: Array.isArray(brand?.competitors) ? brand.competitors : [],
-          goal: campaign.goal,
-        },
-      ) as Record<string, unknown>,
-      allowedPerformanceNumbers,
-      { language: language || (aiOutput.language as string | undefined) || 'ar' },
+        allowedPerformanceNumbers,
+        { language: language || (aiOutput.language as string | undefined) || 'ar' },
+      ),
+      proofContext,
+      {
+        allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms : [],
+        language: language || (aiOutput.language as string | undefined) || 'ar',
+        strategyType: strategyScope.type,
+        organicPostCount: typeof aiOutput.strategyDeliverables?.organicPostCount === 'number'
+          ? aiOutput.strategyDeliverables.organicPostCount
+          : null,
+        hasLeadHandling: Boolean(brand?.leadHandling),
+        leadHandling: brand?.leadHandling || null,
+        hasConversionDestination: hasUsableConversionDestination(brand?.conversionDestination, campaign.goal),
+        conversionDestination: brand?.conversionDestination || null,
+        hasBudget: Boolean(brand?.marketingBudget),
+        budgetText: brand?.marketingBudget || null,
+        allowedCompetitors: Array.isArray(brand?.competitors) ? brand.competitors : [],
+        goal: brand?.businessGoal || campaign.goal,
+      },
     ) as any
     const safeCorrectionsApplied = JSON.stringify(strategy) !== JSON.stringify(rawStrategy)
     if (applySafeCorrections && !safeCorrectionsApplied) {
@@ -166,7 +171,7 @@ export async function POST(req: NextRequest, props: Params) {
       brand,
       allowedPlatforms: Array.isArray(campaign.platforms) ? campaign.platforms : [],
       requireAllReviewedPlatforms: true,
-      goal: campaign.goal,
+      goal: brand?.businessGoal || campaign.goal,
     })
 
     // Sentinel is a paid, model-based reviewer. The deterministic gate is free

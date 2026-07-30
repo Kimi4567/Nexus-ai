@@ -3105,17 +3105,22 @@ export default function CreativeBriefPage() {
           </div>
           <button
             type="button"
-            onClick={() => nextWorkflowStep && goToCreativeStep(nextWorkflowStep)}
-            disabled={!nextWorkflowStep}
+            onClick={() => {
+              if (nextWorkflowStep) {
+                goToCreativeStep(nextWorkflowStep)
+                return
+              }
+              router.push(`/campaigns/${campaign.id}?tab=creative#campaign-room-workspace`)
+            }}
             style={{
               border: 'none',
-              background: nextWorkflowStep ? activeWorkflowStep.accent : '#F1F5F9',
-              color: nextWorkflowStep ? '#FFFFFF' : '#94A3B8',
+              background: activeWorkflowStep.accent,
+              color: '#FFFFFF',
               borderRadius: 12,
               padding: '10px 14px',
               fontSize: 12,
               fontWeight: 900,
-              cursor: nextWorkflowStep ? 'pointer' : 'not-allowed',
+              cursor: 'pointer',
             }}
           >
             {nextWorkflowStep

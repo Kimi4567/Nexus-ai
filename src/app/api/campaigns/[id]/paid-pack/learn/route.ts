@@ -22,12 +22,13 @@ import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/a
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { readOpenAIChatUsage, summarizeOpenAITextUsage, type ProviderUsageSummary } from '@/lib/ai/providerEconomics'
+import { fetchAiProvider } from '@/lib/ai/providerFetch'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
 
 async function callGPT(system: string, user: string): Promise<{ content: string; usage: ProviderUsageSummary }> {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
     body: JSON.stringify({

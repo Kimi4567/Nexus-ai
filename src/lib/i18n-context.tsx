@@ -1,7 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import {
+  LOCALE_COOKIE_NAME,
+  isSupportedLocale,
+  type Locale,
+} from './locale';
 
-export type Locale = 'ar' | 'en';
 const LOCALE_STORAGE_KEYS = ['nexus-lang', 'nexus_locale'] as const;
+export { LOCALE_COOKIE_NAME, isSupportedLocale };
+export type { Locale };
 
 interface I18nContextType {
   locale: Locale;
@@ -14,10 +20,6 @@ interface I18nContextType {
 }
 
 const I18nContext = createContext<I18nContextType | undefined>(undefined);
-
-export function isSupportedLocale(value: unknown): value is Locale {
-  return value === 'ar' || value === 'en';
-}
 
 export function readStoredLocale(storage: Pick<Storage, 'getItem'> | null | undefined): Locale | null {
   if (!storage) return null;
@@ -47,26 +49,38 @@ export function writeStoredLocale(storage: Pick<Storage, 'setItem'> | null | und
   }
 }
 
-export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>('en');
-  const [localeReady, setLocaleReady] = useState(false);
+export function writeLocaleCookie(locale: Locale): void {
+  if (typeof document === 'undefined') return;
+  const secure = typeof window !== 'undefined' && window.location.protocol === 'https:'
+    ? '; Secure'
+    : '';
+  document.cookie = `${LOCALE_COOKIE_NAME}=${locale}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
+}
+
+export function I18nProvider({
+  children,
+  initialLocale = 'en',
+}: {
+  children: React.ReactNode;
+  initialLocale?: Locale;
+}) {
+  const [locale, setLocaleState] = useState<Locale>(initialLocale);
+  const [localeReady, setLocaleReady] = useState(true);
 
   useEffect(() => {
     const saved = readStoredLocale(typeof window !== 'undefined' ? window.localStorage : null);
-    if (saved) {
+    if (saved && saved !== initialLocale) {
       setLocaleState(saved);
-    } else {
-      // English is the public product default. Arabic remains a first-class,
-      // persisted user choice through the language switcher.
-      setLocaleState('en');
     }
+    writeLocaleCookie(saved || initialLocale);
     setLocaleReady(true);
-  }, []);
+  }, [initialLocale]);
 
   const setLocale = useCallback((newLocale: Locale) => {
     setLocaleState(newLocale);
     setLocaleReady(true);
     writeStoredLocale(typeof window !== 'undefined' ? window.localStorage : null, newLocale);
+    writeLocaleCookie(newLocale);
     if (typeof document !== 'undefined') {
       document.documentElement.lang = newLocale;
       document.documentElement.dir = newLocale === 'ar' ? 'rtl' : 'ltr';

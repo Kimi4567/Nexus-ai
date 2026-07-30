@@ -52,6 +52,7 @@ export interface MarketingBrandProfile {
   competitors?: string[] | null
   competitorNotes?: string | null
   conversionDestination?: string | null
+  leadHandling?: string | null
   toneKeywords?: string[] | null
   writingStyle?: string | null
   avoidKeywords?: string[] | null
@@ -90,9 +91,21 @@ const OPERATIONS_PRODUCT_RE = /saas|software|platform|dashboard|workflow (?:soft
 
 const AUDIENCE_CLAIMS: Array<{ code: string; re: RegExp }> = [
   { code: 'children', re: /\b(?:children|kids|child-friendly|pediatric)\b|أطفال|للأطفال|صديق للأطفال/i },
-  { code: 'families', re: /\b(?:family|families|parents)\b|عائلات|أسر|الوالدين|الآباء/i },
+  // Arabic `\b` does not provide useful Unicode word boundaries, while a raw
+  // `أسر` alternative also matches ordinary words such as `أسرع` ("faster").
+  // Keep the audience guard strict, but require every Arabic family term to be
+  // a complete token so unrelated marketing copy is not rejected.
+  { code: 'families', re: /\b(?:family|families|parents)\b|(?<![\p{L}\p{N}_])(?:عائلات|أسر|الوالدين|الآباء)(?![\p{L}\p{N}_])/iu },
   { code: 'relocated', re: /recently (?:moved|relocated)|new to (?:the )?(?:city|area)|انتقل(?:وا)? حديثًا|جدد في المنطقة/i },
   { code: 'all_ages', re: /\b(?:all ages|every age)\b|جميع الأعمار|كل الأعمار/i },
+]
+
+const OPERATING_OWNER_CLAIMS: Array<{ code: string; output: RegExp; evidence: RegExp }> = [
+  { code: 'sales', output: /\bsales\s+(?:team|department|staff)\b|(?:فريق|قسم|موظف|مسؤول)\s+المبيعات/i, evidence: /\bsales\b|مبيعات/i },
+  { code: 'marketing', output: /\bmarketing\s+(?:team|department|staff)\b|(?:فريق|قسم|موظف|مسؤول)\s+التسويق/i, evidence: /\bmarketing\b|تسويق/i },
+  { code: 'reception', output: /\b(?:reception|front[-\s]?desk)\s+(?:team|staff)\b|(?:فريق|قسم|موظف|مسؤول)\s+الاستقبال/i, evidence: /\breception|front[-\s]?desk\b|استقبال/i },
+  { code: 'customer_success', output: /\bcustomer\s+success\s+(?:team|staff)\b|(?:فريق|قسم|موظف|مسؤول)\s+نجاح\s+العملاء/i, evidence: /\bcustomer\s+success\b|نجاح\s+العملاء/i },
+  { code: 'support', output: /\bsupport\s+(?:team|department|staff)\b|(?:فريق|قسم|موظف|مسؤول)\s+الدعم/i, evidence: /\bsupport\b|دعم/i },
 ]
 
 const DOMAIN_SIGNATURES: Array<{
@@ -394,6 +407,53 @@ function publicStrategyFields(strategy: unknown): Array<{ path: string; value: u
   return fields
 }
 
+function namedStrategyFields(
+  value: unknown,
+  names: Set<string>,
+  path = 'strategy',
+  fields: Array<{ path: string; value: unknown }> = [],
+): Array<{ path: string; value: unknown }> {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => namedStrategyFields(item, names, `${path}[${index}]`, fields))
+    return fields
+  }
+  if (!isRecord(value)) return fields
+  for (const [key, child] of Object.entries(value)) {
+    const childPath = `${path}.${key}`
+    if (names.has(key) && normalizedText(child)) fields.push({ path: childPath, value: child })
+    namedStrategyFields(child, names, childPath, fields)
+  }
+  return fields
+}
+
+function claimsConversionDestinationIsMissing(value: unknown): boolean {
+  const text = normalizedText(value)
+  return /\bconversion (?:destination|path)\b[^.]{0,50}\b(?:not set|missing|unverified|not confirmed|not provided)\b/i.test(text)
+    || /\b(?:missing|unverified|unconfirmed|not confirmed|not provided)\b[^.]{0,50}\bconversion (?:destination|path)\b/i.test(text)
+    || /(?:وجهة|مسار)\s+التحويل[^.،؛]{0,50}(?:غير\s+(?:محدد|محددة|موثق|موثقة|مؤكد|مؤكدة)|مفقود|مفقودة|لم\s+تُحد[َّ]?د)/i.test(text)
+    || /(?:غير\s+(?:محدد|محددة|موثق|موثقة|مؤكد|مؤكدة)|مفقود|مفقودة)[^.،؛]{0,50}(?:وجهة|مسار)\s+التحويل/i.test(text)
+}
+
+function missingConversionDestinationClaims(
+  value: unknown,
+  path = 'strategy',
+  claims: Array<{ path: string; value: string }> = [],
+): Array<{ path: string; value: string }> {
+  if (typeof value === 'string') {
+    if (claimsConversionDestinationIsMissing(value)) claims.push({ path, value })
+    return claims
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => missingConversionDestinationClaims(item, `${path}[${index}]`, claims))
+    return claims
+  }
+  if (!isRecord(value)) return claims
+  for (const [key, child] of Object.entries(value)) {
+    missingConversionDestinationClaims(child, `${path}.${key}`, claims)
+  }
+  return claims
+}
+
 interface AgeRange {
   min: number
   max: number
@@ -549,10 +609,62 @@ export function reviewStrategyGrounding(input: StrategyQualityInput): MarketingQ
     input.brand?.writingStyle,
     input.brand?.businessGoal,
     input.brand?.conversionDestination,
+    input.brand?.leadHandling,
     input.brand?.verifiedProof,
   ])
   const operationsProduct = OPERATIONS_PRODUCT_RE.test(brandText)
   const publicFields = publicStrategyFields(strategy)
+
+  if (hasUsableConversionDestination(input.brand?.conversionDestination, input.goal)) {
+    for (const claim of missingConversionDestinationClaims(strategy)) {
+      blockers.push(finding(
+        'known_conversion_destination_marked_missing',
+        'blocker',
+        claim.path,
+        'The strategy marks the conversion destination as missing even though Brand Brain contains a reviewed destination.',
+      ))
+    }
+  }
+
+  const detailedBusinessGoal = normalizedText(input.brand?.businessGoal)
+  const detailedGoalMustBePreserved = /\d|%|٪/.test(detailedBusinessGoal)
+    || detailedBusinessGoal.split(/\s+/).filter(Boolean).length >= 6
+  const businessObjective = isRecord(strategy.businessObjective) ? strategy.businessObjective : null
+  if (
+    detailedGoalMustBePreserved
+    && normalizedText(businessObjective?.primary).toLocaleLowerCase() !== detailedBusinessGoal.toLocaleLowerCase()
+  ) {
+    blockers.push(finding(
+      'business_goal_drift',
+      'blocker',
+      'strategy.businessObjective.primary',
+      'The strategy replaced the detailed user-reviewed business goal instead of preserving it as the authoritative objective.',
+    ))
+  }
+
+  const reviewedLeadHandling = normalizedText(input.brand?.leadHandling)
+  const reportedOperatingOwners = new Set<string>()
+  namedStrategyFields(
+    strategy,
+    new Set(['responseHandoff', 'executionNote', 'nextStep']),
+  ).forEach(({ path, value }) => {
+    const text = normalizedText(value)
+    for (const claim of OPERATING_OWNER_CLAIMS) {
+      if (
+        claim.output.test(text)
+        && !claim.evidence.test(reviewedLeadHandling)
+        && !reportedOperatingOwners.has(claim.code)
+      ) {
+        reportedOperatingOwners.add(claim.code)
+        blockers.push(finding(
+          'lead_handoff_conflicts_with_brand',
+          'blocker',
+          path,
+          `The strategy assigns work to an unreviewed "${claim.code}" operating owner instead of the Brand Brain lead-handling process.`,
+        ))
+      }
+    }
+  })
 
   if (!operationsProduct) {
     publicFields.forEach(({ path, value }) => {

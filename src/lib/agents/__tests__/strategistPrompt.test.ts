@@ -160,6 +160,30 @@ describe('buildStrategistQualityRepairPrompt', () => {
     expect(prompt).toContain('reuse the reviewed target-audience wording')
     expect(prompt).toContain('Do not invent a new demographic or use case')
   })
+
+  it('removes unsupported audience demographics instead of relabeling them as hypotheses', () => {
+    const prompt = buildStrategistQualityRepairPrompt(
+      {
+        campaignName: 'Audience-expanded plan',
+        targetAudienceRefined: 'Families with children',
+        weeklyExecutionPlan: [],
+      } as unknown as StrategyOutput,
+      briefWith(order('organic', 'light', '30')),
+      {
+        stage: 'marketing_quality',
+        issueCodes: ['ungrounded_audience_expansion'],
+        affectedPaths: ['strategy.targetAudienceRefined'],
+        issueDetails: [
+          'strategy.targetAudienceRefined: The strategy adds the audience segment "Families" without support in Brand Brain.',
+        ],
+      },
+    )
+
+    expect(prompt).toContain('UNGROUNDED AUDIENCE REPAIR')
+    expect(prompt).toContain('The only authoritative audience is:')
+    expect(prompt).toContain('remove every unsupported demographic')
+    expect(prompt).toContain('An explicit hypothesis label does not make an unsupported demographic acceptable')
+  })
 })
 
 describe('focused paid-planning repair', () => {

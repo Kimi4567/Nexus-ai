@@ -30,9 +30,6 @@ const nextConfig = {
       '@radix-ui/react-icons',
     ],
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   // typescript.ignoreBuildErrors removed — build must fail on type errors
   trailingSlash: false,
   async headers() {

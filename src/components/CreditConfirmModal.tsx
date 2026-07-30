@@ -45,18 +45,22 @@ export default function CreditConfirmModal({
 }: Props) {
   const ar = (locale || '').toLowerCase().startsWith('ar')
   const [balance, setBalance] = useState<number | null>(null)
-  const [loadingBalance, setLoadingBalance] = useState(false)
+  const [balanceError, setBalanceError] = useState(false)
 
   useEffect(() => {
-    if (!isOpen) { setBalance(null); return }
-    setLoadingBalance(true)
+    if (!isOpen) {
+      setBalance(null)
+      setBalanceError(false)
+      return
+    }
+    setBalanceError(false)
     fetch('/api/user/credits', { headers: { Authorization: authHeader() } })
       .then(r => (r.ok ? r.json() : null))
       .then((d: { creditsRemaining?: number } | null) => {
-        if (d?.creditsRemaining !== undefined) setBalance(d.creditsRemaining)
+        if (d?.creditsRemaining === undefined) throw new Error('Credit balance unavailable')
+        setBalance(d.creditsRemaining)
       })
-      .catch(() => {})
-      .finally(() => setLoadingBalance(false))
+      .catch(() => setBalanceError(true))
   }, [isOpen, authHeader])
 
   useEffect(() => {
@@ -72,7 +76,8 @@ export default function CreditConfirmModal({
 
   const isUnlimited = balance === -1
   const balanceAfter = isUnlimited ? -1 : balance !== null ? Math.max(0, balance - cost) : null
-  const canAfford = isUnlimited || (balance !== null && balance >= cost)
+  const balanceKnown = balance !== null
+  const canAfford = isUnlimited || (balanceKnown && balance >= cost)
 
   const fmt = (n: number | null) =>
     n === null ? '…' : n === -1 ? (ar ? 'غير محدود ∞' : 'Unlimited ∞') : `${n} ${ar ? 'كريديت' : 'credits'}`
@@ -83,7 +88,7 @@ export default function CreditConfirmModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="credit-confirm-title"
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[120] flex items-center justify-center p-4"
       style={{ background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
@@ -161,11 +166,28 @@ export default function CreditConfirmModal({
           )}
 
           {/* Actions */}
-          {canAfford ? (
+          {balanceError ? (
+            <div
+              role="alert"
+              className="mb-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-center text-[11px] leading-5 text-rose-700"
+            >
+              {ar
+                ? 'تعذر التحقق من الرصيد. أغلق النافذة وحاول مرة أخرى؛ لم يُخصم أي كريديت.'
+                : 'Balance could not be verified. Close and try again; no credits were charged.'}
+            </div>
+          ) : !balanceKnown ? (
+            <button
+              type="button"
+              disabled
+              className="mb-2 flex w-full cursor-wait items-center justify-center gap-2 rounded-xl bg-slate-200 py-3 text-sm font-semibold text-slate-500"
+            >
+              <Zap className="h-4 w-4" />
+              {ar ? 'جارٍ التحقق من الرصيد…' : 'Checking balance…'}
+            </button>
+          ) : canAfford ? (
             <button
               type="button"
               onClick={() => { onClose(); onConfirm() }}
-              disabled={loadingBalance && balance === null}
               className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 mb-2 transition-all hover:brightness-110 disabled:opacity-60"
               style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)' }}>
               <Zap className="w-4 h-4" />

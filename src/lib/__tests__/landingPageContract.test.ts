@@ -4,6 +4,7 @@ import {
   conversionDedupeKey,
   conversionFingerprint,
   hashLandingPageSnapshot,
+  isPublicLandingPageSnapshot,
   parseLandingPageDraft,
   publishedSnapshotCaptureFormPublicId,
   publishedSnapshotIsIndexable,
@@ -67,6 +68,25 @@ describe('landing page contract', () => {
     expect(publishedSnapshotCaptureFormPublicId(snapshot)).toBe('form-public-1')
     expect(snapshot.seo).toEqual({ title: null, description: null, indexable: false })
     expect(publishedSnapshotIsIndexable(snapshot)).toBe(false)
+    expect(isPublicLandingPageSnapshot(snapshot, 'page-public-1')).toBe(true)
+  })
+
+  it('rejects corrupt or unsafe persisted snapshots at the public rendering boundary', () => {
+    const parsed = parseLandingPageDraft(validDraft())
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    const snapshot = buildPublicLandingPageSnapshot({
+      publicId: 'page-public-1',
+      draft: parsed.value,
+      captureFormPublicId: 'form-public-1',
+    })
+
+    expect(isPublicLandingPageSnapshot({ ...snapshot, primaryCta: undefined }, 'page-public-1')).toBe(false)
+    expect(isPublicLandingPageSnapshot({
+      ...snapshot,
+      primaryCta: { ...snapshot.primaryCta, href: 'javascript:alert(1)' },
+    }, 'page-public-1')).toBe(false)
+    expect(isPublicLandingPageSnapshot(snapshot, 'different-page')).toBe(false)
   })
 
   it('requires complete, plain metadata before search indexing can be requested', () => {

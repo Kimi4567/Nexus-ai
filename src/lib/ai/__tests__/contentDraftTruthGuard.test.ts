@@ -8,6 +8,70 @@ import {
 } from '../contentDraftTruthGuard'
 
 describe('contentDraftTruthGuard', () => {
+  it('does not turn a cash-flow objective into an unverified collection result', () => {
+    const out = guardContentDraftText(
+      'إدارة الفواتير بوضوح مع Mizan Flow يمكن أن يقلل من أيام التحصيل دون الحاجة إلى زيادة الفريق. تعرف على كيف يمكننا مساعدتك في تحسين تدفقك النقدي.',
+      {
+        brandFacts: ['منصة لإدارة الفواتير ورؤية التدفق النقدي'],
+        verifiedProof: [],
+        hasConversionDestination: true,
+      },
+    )
+
+    expect(out).toContain('يساعد على متابعة أيام التحصيل بوضوح')
+    expect(out).toContain('مراجعة تدفقك النقدي بوضوح')
+    expect(out).not.toMatch(/يقلل من أيام التحصيل|دون الحاجة إلى زيادة الفريق|تحسين تدفقك النقدي/)
+  })
+
+  it('guards noun-form collection claims and does not classify a SaaS subscription as coffee', () => {
+    const context = {
+      brandFacts: ['B2B SaaS subscription for cash-flow forecasting and invoice management.'],
+      verifiedProof: [],
+    }
+    const caption = guardContentDraftText(
+      'مع Mizan Flow يمكنك تقليل أيام التحصيل دون زيادة الفريق. تعرف على الحل الذي يوفر لك تنبؤات موثوقة أسبوعيًا.',
+      context,
+    )
+    const prompt = guardContentDraftText(
+      'An efficient invoice-management workflow infographic for finance managers.',
+      context,
+    )
+
+    expect(caption).toContain('متابعة أيام التحصيل بوضوح')
+    expect(caption).toContain('يعرض توقعات التدفق النقدي لمراجعتها أسبوعيًا')
+    expect(caption).not.toMatch(/تقليل أيام التحصيل|تنبؤات موثوقة/)
+    expect(prompt).not.toMatch(/coffee|قهوة/i)
+  })
+
+  it('guards reliability and staffing variants of the audited cash-flow claim', () => {
+    const out = guardContentDraftText(
+      'Mizan Flow يقدم لك حلاً فعالاً ومتابعة أيام التحصيل بوضوح دون الحاجة إلى زيادة الفريق، مع توقعات أسبوعية موثوقة.',
+      {
+        brandFacts: ['منصة SaaS لإدارة الفواتير وتوقع التدفق النقدي'],
+        verifiedProof: [],
+      },
+    )
+
+    expect(out).toContain('أداة عملية')
+    expect(out).toContain('متابعة أيام التحصيل بوضوح')
+    expect(out).toContain('توقعات التدفق النقدي لمراجعتها أسبوعيًا')
+    expect(out).not.toMatch(/حل[اأً]?\s+فعال|دون الحاجة إلى زيادة الفريق|توقعات أسبوعية موثوقة/)
+  })
+
+  it('grounds cash-flow confidence and liquidity-pressure outcome claims', () => {
+    const out = guardContentDraftText(
+      'يساعدك Mizan Flow في التنبؤ بالتدفق النقدي بثقة وإدارة الفواتير وتقليل الضغط على السيولة.',
+      {
+        brandFacts: ['منصة SaaS لإدارة الفواتير وتوقع التدفق النقدي'],
+        verifiedProof: [],
+      },
+    )
+
+    expect(out).toContain('مراجعة توقعات التدفق النقدي بوضوح')
+    expect(out).toContain('إظهار ضغط السيولة بوضوح')
+    expect(out).not.toMatch(/التنبؤ بالتدفق النقدي بثقة|تقليل الضغط على السيولة/)
+  })
+
   it('removes invented SaaS features and business outcomes not present in Brand Brain', () => {
     const context = {
       brandFacts: [

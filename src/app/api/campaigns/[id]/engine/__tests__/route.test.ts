@@ -22,6 +22,10 @@ const {
   mockGetBrandBrainReadiness,
   mockIsAiProviderConfigured,
   mockFinalizeCreditDeduction,
+  mockFindCampaignEngineJob,
+  mockEnqueueCampaignEngineJob,
+  mockProcessAutomationJobById,
+  mockAfter,
 } = vi.hoisted(() => ({
   mockGetServerUserId: vi.fn(),
   mockAiRateLimitDb: vi.fn(),
@@ -33,8 +37,16 @@ const {
   mockGetBrandBrainReadiness: vi.fn(),
   mockIsAiProviderConfigured: vi.fn(),
   mockFinalizeCreditDeduction: vi.fn(),
+  mockFindCampaignEngineJob: vi.fn(),
+  mockEnqueueCampaignEngineJob: vi.fn(),
+  mockProcessAutomationJobById: vi.fn(),
+  mockAfter: vi.fn(),
 }))
 
+vi.mock('next/server', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('next/server')>()
+  return { ...actual, after: mockAfter }
+})
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
 vi.mock('@/lib/dbRateLimit', () => ({ aiRateLimitDb: mockAiRateLimitDb }))
 vi.mock('@/lib/billableAiRateLimit', () => ({ enforceBillableAiRateLimit: vi.fn().mockResolvedValue(null) }))
@@ -56,6 +68,13 @@ vi.mock('@/lib/credits', () => ({
   }),
 }))
 vi.mock('@/lib/campaign-engine', () => ({ runCampaignEngine: mockRunEngine, deriveCampaignEngineState: vi.fn() }))
+vi.mock('@/lib/automationJobs/repository', () => ({
+  findCampaignEngineJob: mockFindCampaignEngineJob,
+  enqueueCampaignEngineJob: mockEnqueueCampaignEngineJob,
+}))
+vi.mock('@/lib/automationJobs/processor', () => ({
+  processAutomationJobById: mockProcessAutomationJobById,
+}))
 vi.mock('@/lib/brandReadiness', () => ({ getBrandBrainReadiness: mockGetBrandBrainReadiness }))
 vi.mock('@/lib/ai/provider', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/ai/provider')>()
@@ -75,7 +94,16 @@ vi.mock('@/lib/prisma', () => ({
 import { maxDuration, POST } from '../route'
 
 const ctx = { params: Promise.resolve({ id: 'c1' }) }
-const makeReq = (body: Record<string, unknown> = {}) => ({ json: async () => body }) as any
+const makeReq = (body: Record<string, unknown> = {}, async = false) => ({
+  json: async () => body,
+  headers: {
+    get: (name: string) => {
+      if (name.toLowerCase() === 'prefer') return async ? 'respond-async' : null
+      if (name.toLowerCase() === 'idempotency-key') return 'campaign-engine-operation-123'
+      return null
+    },
+  },
+}) as any
 
 const ownedCampaignWithBrand = {
   id: 'c1',
@@ -101,6 +129,8 @@ beforeEach(() => {
   mockRefund.mockResolvedValue(undefined)
   mockIsAiProviderConfigured.mockReturnValue(true)
   mockFinalizeCreditDeduction.mockResolvedValue({ ok: true, status: 'settled' })
+  mockFindCampaignEngineJob.mockResolvedValue(null)
+  mockAfter.mockImplementation(() => undefined)
 })
 
 describe('POST /api/campaigns/[id]/engine', () => {
@@ -185,6 +215,97 @@ describe('POST /api/campaigns/[id]/engine', () => {
     expect(json.engine.status).toBe('ready_for_approval')
     expect(json.creditsUsed).toBe(12)
     expect(mockRefund).not.toHaveBeenCalled()
+  })
+
+  it('queues a durable background job and returns immediately when the UI prefers async work', async () => {
+    const queuedJob = {
+      id: 'job-1',
+      workspaceId: 'w1',
+      campaignId: 'c1',
+      requestedByUserId: 'u1',
+      kind: 'CAMPAIGN_ENGINE',
+      status: 'QUEUED',
+      idempotencyKey: 'operation-key',
+      priority: 0,
+      input: {},
+      output: null,
+      currentStep: 'queued',
+      progress: 10,
+      attemptCount: 0,
+      maxAttempts: 3,
+      nextAttemptAt: new Date(),
+      leaseToken: null,
+      leaseExpiresAt: null,
+      errorCode: null,
+      lastError: null,
+      startedAt: null,
+      completedAt: null,
+      cancelledAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+    mockEnqueueCampaignEngineJob.mockResolvedValue({ job: queuedJob, created: true })
+
+    const res = await POST(makeReq({}, true), ctx)
+    const json = await res.json()
+
+    expect(res.status).toBe(202)
+    expect(json).toMatchObject({
+      accepted: true,
+      reused: false,
+      jobId: 'job-1',
+      job: { status: 'QUEUED', progress: 10 },
+      creditReservation: { creditsReserved: 12, status: 'RESERVED' },
+    })
+    expect(mockEnqueueCampaignEngineJob).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: 'w1',
+      campaignId: 'c1',
+      requestedByUserId: 'u1',
+      force: false,
+    }))
+    expect(mockRunEngine).not.toHaveBeenCalled()
+    expect(mockAfter).toHaveBeenCalledTimes(1)
+  })
+
+  it('reuses an active campaign job before creating another credit reservation', async () => {
+    mockFindCampaignEngineJob.mockResolvedValue({
+      id: 'job-active',
+      workspaceId: 'w1',
+      campaignId: 'c1',
+      requestedByUserId: 'u1',
+      kind: 'CAMPAIGN_ENGINE',
+      status: 'RUNNING',
+      idempotencyKey: 'operation-key',
+      priority: 0,
+      input: {},
+      output: null,
+      currentStep: 'campaign_engine',
+      progress: 40,
+      attemptCount: 1,
+      maxAttempts: 3,
+      nextAttemptAt: new Date(),
+      leaseToken: 'lease',
+      leaseExpiresAt: new Date(Date.now() + 60_000),
+      errorCode: null,
+      lastError: null,
+      startedAt: new Date(),
+      completedAt: null,
+      cancelledAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
+    const res = await POST(makeReq({}, true), ctx)
+    const json = await res.json()
+
+    expect(res.status).toBe(202)
+    expect(json).toMatchObject({
+      reused: true,
+      jobId: 'job-active',
+      job: { status: 'RUNNING' },
+    })
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockEnqueueCampaignEngineJob).not.toHaveBeenCalled()
   })
 
   it('provider misconfiguration returns 503 before credit deduction', async () => {

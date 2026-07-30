@@ -573,9 +573,9 @@ export default function LandingPage() {
         </div>
         <h1 className="nx-public-hero-title mx-auto max-w-6xl text-balance">
           {ar ? (
-            <>عقل واحد للبراند. <span className="nx-public-hero-accent">وقسم تسويق يعمل باستمرار.</span></>
+            <>عقل واحد للبراند. <span className="nx-public-hero-accent">وقسم تسويق تقوده أنت.</span></>
           ) : (
-            <>One Brand Brain. <span className="nx-public-hero-accent">An always-on marketing department.</span></>
+            <>One Brand Brain. <span className="nx-public-hero-accent">A marketing department you direct.</span></>
           )}
         </h1>
         <p className="nx-public-hero-copy mx-auto mt-7 max-w-4xl text-pretty">

@@ -27,6 +27,7 @@ import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/a
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { readOpenAIChatUsage, summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
+import { fetchAiProvider } from '@/lib/ai/providerFetch'
 
 export async function POST(req: NextRequest) {
   // Hoisted so any failure below the deduction refunds the user.
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
       .map((s, i) => `--- SAMPLE ${i + 1} ---\n${s.trim().slice(0, 2000)}`)
       .join('\n\n')
 
-    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+    const openaiRes = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

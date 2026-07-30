@@ -21,7 +21,9 @@ export interface StrategyOutputContractContext {
   strategyType?: 'organic' | 'paid' | 'full' | string | null
   organicPostCount?: number | null
   hasLeadHandling?: boolean
+  leadHandling?: string | null
   hasConversionDestination?: boolean
+  conversionDestination?: string | null
   hasBudget?: boolean
   budgetText?: string | null
   allowedCompetitors?: string[] | null
@@ -401,6 +403,77 @@ function guardUnverifiedConversionActions(value: unknown, language?: string | nu
   return output
 }
 
+function isMissingConversionDestinationClaim(value: unknown): boolean {
+  return typeof value === 'string' && (
+    /\bconversion (?:destination|path)\b[^.]{0,50}\b(?:not set|missing|unverified|not confirmed|not provided)\b/i.test(value)
+    || /\b(?:missing|unverified|unconfirmed|not confirmed|not provided)\b[^.]{0,50}\bconversion (?:destination|path)\b/i.test(value)
+    || /(?:وجهة|مسار)\s+التحويل[^.،؛]{0,50}(?:غير\s+(?:محدد|محددة|موثق|موثقة|مؤكد|مؤكدة)|مفقود|مفقودة|لم\s+تُحد[َّ]?د)/i.test(value)
+    || /(?:غير\s+(?:محدد|محددة|موثق|موثقة|مؤكد|مؤكدة)|مفقود|مفقودة)[^.،؛]{0,50}(?:وجهة|مسار)\s+التحويل/i.test(value)
+  )
+}
+
+function alignReviewedConversionDestination(
+  value: JsonObject,
+  conversionDestination: string | null | undefined,
+): void {
+  const destination = typeof conversionDestination === 'string'
+    ? conversionDestination.trim()
+    : ''
+  if (!destination) return
+
+  if (isObject(value.businessObjective)) {
+    value.businessObjective = {
+      ...value.businessObjective,
+      conversionAction: destination,
+      expectedUserAction: destination,
+    }
+  }
+  if (Array.isArray(value.riskNotes)) {
+    value.riskNotes = value.riskNotes.filter(item => !isMissingConversionDestinationClaim(item))
+  }
+  if (Array.isArray(value.missingData)) {
+    value.missingData = value.missingData.filter(item => (
+      typeof item !== 'string'
+      || !/conversion\s*destination|وجهة\s+التحويل|مسار\s+التحويل/i.test(item)
+    ))
+  }
+}
+
+function alignReviewedLeadHandling(
+  value: unknown,
+  leadHandling: string | null | undefined,
+  path = 'strategy',
+): unknown {
+  const reviewedHandoff = typeof leadHandling === 'string' ? leadHandling.trim() : ''
+  if (!reviewedHandoff) return value
+  if (Array.isArray(value)) {
+    return value.map((item, index) => alignReviewedLeadHandling(item, reviewedHandoff, `${path}[${index}]`))
+  }
+  if (!isObject(value)) return value
+
+  const output: JsonObject = {}
+  for (const [key, child] of Object.entries(value)) {
+    const childPath = `${path}.${key}`
+    if (key === 'responseHandoff' && typeof child === 'string') {
+      output[key] = reviewedHandoff
+      continue
+    }
+    if (
+      (
+        key === 'executionNote'
+        || (key === 'nextStep' && path.includes('.funnelStages['))
+      )
+      && typeof child === 'string'
+      && (key === 'nextStep' || mentionsUnverifiedOperatingOwner(child))
+    ) {
+      output[key] = reviewedHandoff
+      continue
+    }
+    output[key] = alignReviewedLeadHandling(child, reviewedHandoff, childPath)
+  }
+  return output
+}
+
 function isAllowedPlatform(value: unknown, ctx: NormalizedPlatformContext): boolean {
   if (!ctx.allowedKeys.size) return true
   const key = normalizePlatform(value)
@@ -469,6 +542,7 @@ function prefersArabicFallback(language: string | null | undefined): boolean {
 }
 
 const MEASURABLE_OBJECTIVE_SIGNAL = /\b(?:baseline|qualified|purchase|order|lead|inquir|booking|signup|click|conversion|revenue|event|attribution|signal|intent|response|quality|measure|track|record|continue|iterate|stop)\b|(?:خط\s+أساس|طلب|شراء|عميل\s+محتمل|استفسار|حجز|نقرة|تحويل|إيراد|حدث|إسناد|إشارة|نية|استجابة|جودة|قياس|رصد|تسجيل|توثيق|استمرار|تعديل|إيقاف|نستمر|نعدّل|نتوقف)/i
+const OBJECTIVE_DECISION_RULE = /\b(?:continue|iterate|adjust|change|stop)\b|(?:نستمر|استمرار|نعدّل|تعديل|نغيّر|تغيير|نتوقف|إيقاف)/i
 const GENERIC_OBJECTIVE_DEFINITION = /validate (?:market )?(?:interest|engagement)|clearer .+ validated|تحقق من (?:اهتمام|تفاعل)/i
 
 function guardBusinessObjectiveOperationalDepth(
@@ -484,7 +558,13 @@ function guardBusinessObjectiveOperationalDepth(
     && MEASURABLE_OBJECTIVE_SIGNAL.test(current)
     && !GENERIC_OBJECTIVE_DEFINITION.test(current)
   ) {
-    return value
+    if (OBJECTIVE_DECISION_RULE.test(current)) return value
+    return {
+      ...value,
+      successIn30Days: prefersArabicFallback(language)
+        ? `${current} نستمر مع الرسائل التي تجذب استجابة مؤهلة، ونعدّل أو نتوقف عندما تظل جودة الاستجابة أو اكتمال المسار غير واضحين.`
+        : `${current} Continue messages that attract qualified responses, and iterate or stop when response quality or path completion remains unclear.`,
+    }
   }
 
   return {
@@ -509,7 +589,8 @@ function guardBusinessObjectiveGoal(
       || normalizedGoal === 'leads'
       || normalizedGoal.includes('lead')
       || normalizedGoal.includes('qualified lead')
-      || /عم(?:يل|لاء)\s+محتمل|استفسار|طلب\s+عرض/.test(normalizedGoal)
+      || normalizedGoal.includes('demo')
+      || /عم(?:يل|لاء)\s+محتمل|استفسار|طلب\s+عرض|عرض\s+توضيحي/.test(normalizedGoal)
     ) {
       return ar
         ? {
@@ -580,7 +661,14 @@ function guardBusinessObjectiveGoal(
     return null
   })()
 
-  return objective ? { ...value, ...objective } : value
+  if (!objective) return value
+  const preserveReviewedPrimary = /\d|%|٪/.test(goal)
+    || goal.trim().split(/\s+/).length >= 6
+  return {
+    ...value,
+    ...objective,
+    ...(preserveReviewedPrimary ? { primary: goal.trim() } : {}),
+  }
 }
 
 function guardDiagnosisTruthBasis(value: unknown, language?: string | null): unknown {
@@ -2172,6 +2260,7 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
   const output = (context.hasConversionDestination === false
     ? guardUnverifiedConversionActions(leadGuardedValue, context.language)
     : leadGuardedValue) as JsonObject
+  alignReviewedConversionDestination(output, context.conversionDestination)
   output.campaignName = guardCampaignName(output.campaignName, context.strategyType, context.language)
   output.businessObjective = guardBusinessObjectiveGoal(output.businessObjective, context.goal, context.language)
   output.businessObjective = guardBusinessObjectiveOperationalDepth(output.businessObjective, context.language)
@@ -2244,10 +2333,11 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
   guardAgencyOperatingSections(output, context.language, context.allowedCompetitors)
   guardPaidPlanningTruth(output, context)
   guardGeneratedOperatingOwners(output, context.language)
+  const leadAligned = alignReviewedLeadHandling(output, context.leadHandling) as JsonObject
   // Run copy specificity last: weekly alignment and fallback construction can
   // reuse legacy messages, so the final document must be checked after every
   // structural transformation has completed.
-  guardGenericStrategyHooks(output, context.language)
+  guardGenericStrategyHooks(leadAligned, context.language)
 
-  return output as T
+  return leadAligned as T
 }

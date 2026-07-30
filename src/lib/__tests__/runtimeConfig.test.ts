@@ -59,6 +59,24 @@ describe('getRuntimeConfig', () => {
     expect(result.cron.strong).toBe(true)
   })
 
+  it('accepts Vercel OIDC as the production text-provider credential', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co'
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon_key'
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service_key'
+    process.env.DATABASE_URL = 'postgresql://localhost/db'
+    process.env.VERCEL_OIDC_TOKEN = 'oidc-token'
+    delete process.env.OPENAI_API_KEY
+    process.env.CRON_SECRET = 'a'.repeat(40)
+    process.env.OAUTH_STATE_SECRET = 'oauth_secret'
+    process.env.TOKEN_ENCRYPTION_KEY = 'a'.repeat(64)
+    process.env.NEXT_PUBLIC_APP_URL = 'https://nexus.example'
+
+    const result = getRuntimeConfig()
+    expect(result.requiredMissing).not.toContain('AI_TEXT_PROVIDER_CREDENTIAL')
+    expect(result.ready).toBe(true)
+  })
+
   it('fails readiness when the credit wallet flag is on without every Stripe tier', () => {
     vi.stubEnv('NODE_ENV', 'development')
     process.env.CREDIT_WALLET_ENABLED = 'true'

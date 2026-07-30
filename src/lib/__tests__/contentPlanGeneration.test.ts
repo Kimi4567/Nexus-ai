@@ -10,7 +10,8 @@
  *  2. a transient failure then success retries safely and returns ONE post set
  *     (no duplication / no second charge — posts are written only after success);
  *  3/5. a failed generation produces a clear 502 with the refund flag preserved;
- *  4. malformed / truncated output fails clearly and is NOT retried;
+ *  4. common JSON wrappers are repaired, malformed output gets one safe retry,
+ *     and truncated output fails clearly without replay;
  *  6/7. PR #4's caption + video-slot mapping is intact — no English placeholders.
  */
 
@@ -90,17 +91,35 @@ describe('parseContentPlanResponse', () => {
     expect(res).toEqual({ ok: false, reason: 'malformed' })
   })
 
+  it('repairs fenced JSON and bounded prose wrappers without evaluating output', () => {
+    const fenced = parseContentPlanResponse({
+      choices: [{
+        finish_reason: 'stop',
+        message: { content: `\`\`\`json\n${JSON.stringify({ posts: makePosts(3) })}\n\`\`\`` },
+      }],
+    })
+    const prose = parseContentPlanResponse({
+      choices: [{
+        finish_reason: 'stop',
+        message: { content: `Here is the plan:\n${JSON.stringify({ posts: makePosts(2) })}\nDone.` },
+      }],
+    })
+
+    expect(fenced.ok && fenced.posts).toHaveLength(3)
+    expect(prose.ok && prose.posts).toHaveLength(2)
+  })
+
   it('4c. missing choices / empty content is classified "empty" (transient)', () => {
     expect(parseContentPlanResponse({})).toEqual({ ok: false, reason: 'empty' })
     expect(parseContentPlanResponse({ choices: [{ message: { content: '   ' } }] })).toEqual({ ok: false, reason: 'empty' })
     expect(parseContentPlanResponse({ choices: [{ message: { content: '{"posts":[]}' } }] })).toEqual({ ok: false, reason: 'empty' })
   })
 
-  it('only transient failures are retryable', () => {
+  it('retries recoverable pre-save failures but not token truncation', () => {
     expect(isRetryableFailure('provider')).toBe(true)
     expect(isRetryableFailure('empty')).toBe(true)
     expect(isRetryableFailure('truncated')).toBe(false)
-    expect(isRetryableFailure('malformed')).toBe(false)
+    expect(isRetryableFailure('malformed')).toBe(true)
   })
 })
 
@@ -149,17 +168,20 @@ describe('generateContentPlanWithRetry', () => {
     expect(result).toEqual({ ok: false, reason: 'provider' })
   })
 
-  it('4d. does NOT retry deterministic failures (truncated / malformed)', async () => {
+  it('4d. does not retry truncation and does retry malformed output once', async () => {
     const truncated = vi.fn(async () => truncatedResp())
     const t = await generateContentPlanWithRetry(truncated, FAST)
     expect(t.attempts).toBe(1)
     expect(truncated).toHaveBeenCalledTimes(1)
     expect(t.result).toEqual({ ok: false, reason: 'truncated' })
 
-    const malformed = vi.fn(async () => malformedResp())
+    const malformed = vi
+      .fn<() => Promise<FetchLikeResponse>>()
+      .mockResolvedValueOnce(malformedResp())
+      .mockResolvedValueOnce(okResp(makePosts(3)))
     const m = await generateContentPlanWithRetry(malformed, FAST)
-    expect(malformed).toHaveBeenCalledTimes(1)
-    expect(m.result).toEqual({ ok: false, reason: 'malformed' })
+    expect(malformed).toHaveBeenCalledTimes(2)
+    expect(m.result.ok && m.result.posts).toHaveLength(3)
   })
 })
 
@@ -272,7 +294,7 @@ describe('resolveContentPlanSlotScope', () => {
   it('keeps paid-only/no-scope route blocking before credit deduction', () => {
     const routeSource = readFileSync('src/app/api/campaigns/[id]/generate-content-plan/route.ts', 'utf8')
     const scopeIndex = routeSource.indexOf('const slotScope = resolveContentPlanSlotScope')
-    const creditIndex = routeSource.indexOf('const creditCheck = await checkAndDeductCredits(')
+    const creditIndex = routeSource.indexOf("await checkAndDeductCredits(\n      userId,\n      'CONTENT_PLAN_GENERATION'")
 
     expect(scopeIndex).toBeGreaterThan(-1)
     expect(creditIndex).toBeGreaterThan(-1)
@@ -298,7 +320,9 @@ describe('resolveContentPlanSlotScope', () => {
     const routeSource = readFileSync('src/app/api/campaigns/[id]/generate-content-plan/route.ts', 'utf8')
 
     expect(routeSource).toContain('const renderedPostsToCreate = slots.map')
-    expect(routeSource).toContain('const postsToCreate = guardContentDraftTruth(renderedPostsToCreate, proofContext)')
+    expect(routeSource).toContain('const postsToCreate = guardContentDraftTruth(')
+    expect(routeSource).toContain('ensureContentPlanConversionHandoff(')
+    expect(routeSource).toContain('brandProfile?.conversionDestination')
     expect(routeSource).toContain('const bVariantsToCreate = guardContentDraftTruth(renderedBVariantsToCreate, proofContext)')
   })
 

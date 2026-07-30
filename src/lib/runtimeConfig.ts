@@ -43,6 +43,9 @@ export function getRuntimeConfig() {
   const lifecycleMessagingRequested = process.env.LIFECYCLE_MESSAGING_ENABLED === 'true'
   const landingPagesRequested = process.env.LANDING_PAGES_ENABLED === 'true'
   const landingPageExperimentsRequested = process.env.LANDING_PAGE_EXPERIMENTS_ENABLED === 'true'
+  const aiTextCredential = process.env.AI_GATEWAY_API_KEY
+    || process.env.VERCEL_OIDC_TOKEN
+    || process.env.OPENAI_API_KEY
 
   const billingCore = billingGate.core
   const billingReady = billingGate.ready
@@ -65,7 +68,7 @@ export function getRuntimeConfig() {
     productionOnlyMissing('SUPABASE_SERVICE_ROLE_KEY', process.env.SUPABASE_SERVICE_ROLE_KEY, production),
     productionOnlyMissing('DATABASE_URL', process.env.DATABASE_URL, production),
     productionOnlyMissing('NEXT_PUBLIC_APP_URL', process.env.NEXT_PUBLIC_APP_URL, production),
-    productionOnlyMissing('OPENAI_API_KEY', process.env.OPENAI_API_KEY, production),
+    productionOnlyMissing('AI_TEXT_PROVIDER_CREDENTIAL', aiTextCredential, production),
     productionOnlyMissing('CRON_SECRET', process.env.CRON_SECRET, production),
     productionOnlyMissing('OAUTH_STATE_SECRET', process.env.OAUTH_STATE_SECRET, production),
     productionOnlyMissing('TOKEN_ENCRYPTION_KEY', process.env.TOKEN_ENCRYPTION_KEY, production),

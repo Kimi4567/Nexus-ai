@@ -9,7 +9,7 @@ import {
   useCallback,
 } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import supabase from './supabaseClient'
+import supabase, { restoreBrowserSession } from './supabaseClient'
 import type { User, Session } from '@supabase/supabase-js'
 import { getBrandBrainReadiness } from './brandReadiness'
 import { getFirstRunJourney, type StrategyState } from './firstUserJourney'
@@ -76,12 +76,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // the whole application behind an infinite loading screen if that lock stalls.
     bootTimeout = setTimeout(() => resolveAuth(null), 10_000)
 
-    // ── Source 1: getSession() ────────────────────────────────────────────────
-    // Reads from localStorage, auto-refreshes access token if expired,
-    // returns the final valid session (or null if refresh fails).
-    // Primary and most reliable source — handles network gracefully.
-    supabase.auth.getSession()
-      .then(({ data }) => resolveAuth(data.session))
+    // ── Source 1: cookie session recovery + one-time legacy migration ─────────
+    // Reads the SSR-compatible cookie session. Existing users are migrated from
+    // the former localStorage session without being forced to sign in again.
+    restoreBrowserSession()
+      .then(resolveAuth)
       .catch(() => resolveAuth(null))
 
     // ── Source 2: onAuthStateChange ───────────────────────────────────────────

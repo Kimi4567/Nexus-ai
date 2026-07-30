@@ -2,7 +2,8 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -128,6 +129,7 @@ model Workspace {
   brandProfile           BrandProfile?
   visuals                GeneratedVisual[]
   socialPosts            SocialPost[]
+  automationJobs         AutomationJob[]
   agentRuns              AgentRun[]
   agentSuggestions       AgentSuggestion[]
   agentReports           AgentReport[]
@@ -340,7 +342,8 @@ model Campaign {
   uploadSessions UploadSession[] @relation("CampaignUploadSessions")
 
   // Generations
-  generations Generation[]
+  generations    Generation[]
+  automationJobs AutomationJob[]
 
   // Full AI output stored for history/detail view
   aiOutput Json? // { strategy, concepts, generatedAt }
@@ -467,6 +470,92 @@ model Generation {
   @@index([campaignId])
   @@index([status])
   @@index([provider])
+}
+
+enum AutomationJobStatus {
+  PREPARING
+  QUEUED
+  RUNNING
+  RETRY_SCHEDULED
+  WAITING_FOR_APPROVAL
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum AutomationJobStepStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+/// Durable, server-only execution record for long AI and automation work.
+/// Browser roles have no Data API privileges on this table; authenticated
+/// access is always mediated by ownership-checked Next.js route handlers.
+model AutomationJob {
+  id                String    @id @default(cuid())
+  workspaceId       String
+  workspace         Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaignId        String?
+  campaign          Campaign? @relation(fields: [campaignId, workspaceId], references: [id, workspaceId], onDelete: Cascade)
+  requestedByUserId String
+
+  kind           String
+  status         AutomationJobStatus @default(PREPARING)
+  idempotencyKey String
+  priority       Int                 @default(0)
+
+  input       Json
+  output      Json?
+  currentStep String?
+  progress    Int     @default(0)
+
+  attemptCount  Int      @default(0)
+  maxAttempts   Int      @default(3)
+  nextAttemptAt DateTime @default(now())
+
+  leaseToken     String?
+  leaseExpiresAt DateTime?
+
+  errorCode String?
+  lastError String? @db.Text
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  steps AutomationJobStep[]
+
+  @@unique([workspaceId, kind, idempotencyKey])
+  @@index([status, nextAttemptAt, priority, createdAt])
+  @@index([workspaceId, createdAt])
+  @@index([campaignId, createdAt])
+  @@index([campaignId, kind, status, createdAt])
+  @@index([leaseExpiresAt])
+}
+
+model AutomationJobStep {
+  id      String                  @id @default(cuid())
+  jobId   String
+  job     AutomationJob           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  stepKey String
+  attempt Int
+  status  AutomationJobStepStatus @default(RUNNING)
+
+  input  Json?
+  output Json?
+  error  String? @db.Text
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([jobId, stepKey, attempt])
+  @@index([jobId, createdAt])
+  @@index([status, createdAt])
 }
 
 // ============================================================================
@@ -1944,6 +2033,12 @@ model Competitor {
   lastScanAt     DateTime?
   nextScanAt     DateTime?
   lastError      String?   @db.Text
+  // Competitor evidence belongs to the exact user-confirmed Brand Brain
+  // identity that existed when monitoring was approved.
+  brandContextFingerprint String?
+  contextReviewRequired   Boolean   @default(false)
+  contextInvalidatedAt    DateTime?
+  contextReviewedAt       DateTime?
 
   sources CompetitorSource[]
   signals CompetitorSignal[]
@@ -1953,6 +2048,7 @@ model Competitor {
 
   @@unique([workspaceId, domain])
   @@index([workspaceId, status])
+  @@index([workspaceId, contextReviewRequired, status])
   @@index([workspaceId, updatedAt])
 }
 

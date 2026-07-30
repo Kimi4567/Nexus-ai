@@ -35,6 +35,7 @@ import {
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { readOpenAIChatUsage, summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
+import { fetchAiProvider } from '@/lib/ai/providerFetch'
 import { hasUsableConversionDestination } from '@/lib/strategyBriefReadiness'
 import { sourceLinkedProofStatements } from '@/lib/strategy/strategyEvidenceLedger'
 
@@ -221,7 +222,7 @@ ${post.caption}${instruction ? `\n\nRewrite instruction: ${instruction}` : '\n\n
       const reviewFeedback = attempt > 0 && publishReview.length > 0
         ? `\n\nThe previous draft was rejected by the saved-content quality gate. Repair every finding below while preserving the original intent:\n${publishReview.map(issue => `- ${issue.reason}`).join('\n')}`
         : ''
-      const chatRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      const chatRes = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,

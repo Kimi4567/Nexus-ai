@@ -6,6 +6,7 @@ import {
   ContentRunway,
   type DashboardContentRunwaySummary,
 } from '@/components/dashboard/ContentRunway'
+import OwnerCampaignStarterModal from '@/components/OwnerCampaignStarterModal'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { fetchWithTimeout, PRODUCT_READ_TIMEOUT_MS } from '@/lib/fetchWithTimeout'
@@ -16,6 +17,9 @@ import { type PublishingState } from '@/lib/operatingBriefStatus'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import type { ExecutionQueueItem } from '@/lib/executionTruth'
 import type { DashboardContentRunwayItem } from '@/lib/dashboardContentRunway'
+import { newClientCreditOperationId } from '@/lib/creditOperationClient'
+import type { OwnerCampaignOutcome } from '@/lib/ownerCampaignCommand'
+import { derivePlatformReadiness, type SocialAccount } from '@/lib/platformReadiness'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -184,12 +188,88 @@ interface BrandResponse {
   brandProfile?: Parameters<typeof getBrandBrainReadiness>[0]
 }
 
-interface SocialPublishingAccount {
-  status?: string
+type OwnerCampaignCommandStatus =
+  | 'STARTING'
+  | 'PREPARING'
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'RETRY_SCHEDULED'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'CANCELLED'
+
+interface OwnerCampaignCommand {
+  version: 1
+  operationId: string
+  outcome: OwnerCampaignOutcome
+  campaignId: string | null
+  jobId: string | null
+  status: OwnerCampaignCommandStatus
+  message: string | null
+  refunded: boolean | null
+}
+
+interface PublicAutomationJob {
+  id: string
+  status: OwnerCampaignCommandStatus
+  campaignId: string | null
+  message: string | null
+  terminal: boolean
+  canResume: boolean
+  output?: unknown
+}
+
+const OWNER_COMMAND_STORAGE_PREFIX = 'nexus:owner-campaign:v1:'
+
+function readOwnerCampaignCommand(userId: string): OwnerCampaignCommand | null {
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(`${OWNER_COMMAND_STORAGE_PREFIX}${userId}`) || 'null',
+    ) as Partial<OwnerCampaignCommand> | null
+    if (
+      parsed?.version !== 1
+      || typeof parsed.operationId !== 'string'
+      || typeof parsed.outcome !== 'string'
+      || typeof parsed.status !== 'string'
+    ) {
+      return null
+    }
+    return parsed as OwnerCampaignCommand
+  } catch {
+    return null
+  }
+}
+
+function writeOwnerCampaignCommand(userId: string, command: OwnerCampaignCommand): void {
+  try {
+    window.localStorage.setItem(
+      `${OWNER_COMMAND_STORAGE_PREFIX}${userId}`,
+      JSON.stringify(command),
+    )
+  } catch {
+    // The durable server job remains the source of truth when browser storage
+    // is unavailable; storage only restores the in-progress command surface.
+  }
+}
+
+function clearOwnerCampaignCommand(userId: string): void {
+  try {
+    window.localStorage.removeItem(`${OWNER_COMMAND_STORAGE_PREFIX}${userId}`)
+  } catch {
+    // Nothing to clear when browser storage is unavailable.
+  }
+}
+
+function automationRefunded(output: unknown): boolean | null {
+  if (!output || typeof output !== 'object' || Array.isArray(output)) return null
+  return typeof (output as { refunded?: unknown }).refunded === 'boolean'
+    ? (output as { refunded: boolean }).refunded
+    : null
 }
 
 interface ConnectionSummary {
-  connected: number
+  linked: number
+  deliveryReady: number
 }
 
 type WorkspaceGateState = 'checking' | 'hasWorkspace' | 'noWorkspace' | 'error'
@@ -388,7 +468,7 @@ function EmptyOrImage({ thumbnail, label }: { thumbnail?: string; label: string 
 }
 
 export default function DashboardPage() {
-  const { authHeader, isAuthenticated, loading: authLoading } = useAuth()
+  const { authHeader, isAuthenticated, loading: authLoading, user } = useAuth()
   const { locale } = useI18n()
   const ar = locale === 'ar'
   const router = useRouter()
@@ -406,10 +486,13 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
   const [brandCompletenessScore, setBrandCompletenessScore] = useState(0)
-  const [brandName, setBrandName] = useState<string | null>(null)
   const [brandTruthBlocked, setBrandTruthBlocked] = useState(false)
   const [workspaceGate, setWorkspaceGate] = useState<WorkspaceGateState>('checking')
   const [workspaceGateRetry, setWorkspaceGateRetry] = useState(0)
+  const [ownerStarterOpen, setOwnerStarterOpen] = useState(false)
+  const [ownerStartBusy, setOwnerStartBusy] = useState(false)
+  const [ownerStartError, setOwnerStartError] = useState<string | null>(null)
+  const [ownerCommand, setOwnerCommand] = useState<OwnerCampaignCommand | null>(null)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
@@ -535,7 +618,6 @@ export default function DashboardPage() {
         const data = await brandRes.value.json() as BrandResponse
         setBrandReadiness(getBrandBrainReadiness(data.brandProfile))
         setBrandCompletenessScore(getBrandIndicators(data.brandProfile).brandCompleteness.score)
-        setBrandName(data.brandProfile?.brandName || null)
         setBrandTruthBlocked(reviewBrandTruthConsistency(data.brandProfile).status === 'blocked')
       }
 
@@ -549,12 +631,16 @@ export default function DashboardPage() {
       }
 
       if (connectionsRes.status === 'fulfilled' && connectionsRes.value.ok) {
-        const data = await connectionsRes.value.json() as { accounts?: SocialPublishingAccount[] }
+        const data = await connectionsRes.value.json() as { accounts?: SocialAccount[] }
         const connectedAccounts = Array.isArray(data.accounts)
           ? data.accounts.filter(account => account.status === 'CONNECTED')
           : []
+        const deliveryReady = derivePlatformReadiness(data.accounts)
+          .filter(state => state.key !== 'paid' && state.status === 'ready')
+          .length
         setConnectionSummary({
-          connected: connectedAccounts.length,
+          linked: connectedAccounts.length,
+          deliveryReady,
         })
       }
 
@@ -568,10 +654,196 @@ export default function DashboardPage() {
     }
   }, [authHeader])
 
+  const persistOwnerCommand = useCallback((command: OwnerCampaignCommand) => {
+    setOwnerCommand(command)
+    if (user?.id) writeOwnerCampaignCommand(user.id, command)
+  }, [user?.id])
+
+  const startOwnerCampaign = useCallback(async (
+    outcome: OwnerCampaignOutcome,
+    resumeCommand: OwnerCampaignCommand | null = null,
+  ) => {
+    const token = authHeader()
+    if (!token) return
+
+    setOwnerStartBusy(true)
+    setOwnerStartError(null)
+    const operationId = resumeCommand?.operationId ?? newClientCreditOperationId()
+    let campaignId = resumeCommand?.campaignId ?? null
+    let nextCommand: OwnerCampaignCommand = {
+      version: 1,
+      operationId,
+      outcome,
+      campaignId,
+      jobId: resumeCommand?.jobId ?? null,
+      status: 'STARTING',
+      message: null,
+      refunded: null,
+    }
+    persistOwnerCommand(nextCommand)
+
+    try {
+      if (!campaignId) {
+        const prepareResponse = await fetch('/api/campaigns/prepare', {
+          method: 'POST',
+          headers: {
+            Authorization: token,
+            'Content-Type': 'application/json',
+            'Idempotency-Key': operationId,
+          },
+          body: JSON.stringify({ outcome, language: locale }),
+        })
+        const prepared = await prepareResponse.json().catch(() => ({})) as {
+          campaign?: { id?: string }
+          error?: string
+          message?: string
+        }
+        if (!prepareResponse.ok || !prepared.campaign?.id) {
+          throw new Error(prepared.message || prepared.error || (
+            ar ? 'تعذر تجهيز مسودة الحملة.' : 'The campaign draft could not be prepared.'
+          ))
+        }
+        campaignId = prepared.campaign.id
+        nextCommand = { ...nextCommand, campaignId }
+        persistOwnerCommand(nextCommand)
+      }
+
+      const engineResponse = await fetch(`/api/campaigns/${campaignId}/engine`, {
+        method: 'POST',
+        headers: {
+          Authorization: token,
+          'Content-Type': 'application/json',
+          Prefer: 'respond-async',
+          'Idempotency-Key': operationId,
+        },
+        body: JSON.stringify({ language: locale }),
+      })
+      const engineResult = await engineResponse.json().catch(() => ({})) as {
+        jobId?: string
+        job?: PublicAutomationJob
+        error?: string
+        message?: string
+        refunded?: boolean
+      }
+      if (!engineResponse.ok) {
+        const failure: OwnerCampaignCommand = {
+          ...nextCommand,
+          status: 'FAILED',
+          message: engineResult.message || engineResult.error || (
+            ar ? 'لم يكتمل تشغيل NEXUS.' : 'NEXUS could not start the work.'
+          ),
+          refunded: typeof engineResult.refunded === 'boolean' ? engineResult.refunded : null,
+        }
+        persistOwnerCommand(failure)
+        setOwnerStarterOpen(false)
+        await load(true)
+        return
+      }
+
+      const job = engineResult.job
+      const accepted: OwnerCampaignCommand = {
+        ...nextCommand,
+        campaignId,
+        jobId: engineResult.jobId || job?.id || null,
+        status: job?.status || (engineResponse.status === 200 ? 'COMPLETED' : 'QUEUED'),
+        message: job?.message || engineResult.message || null,
+        refunded: automationRefunded(job?.output),
+      }
+      persistOwnerCommand(accepted)
+      setOwnerStarterOpen(false)
+      await load(true)
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : (ar ? 'تعذر بدء تجهيز الحملة.' : 'Campaign preparation could not start.')
+      if (campaignId) {
+        persistOwnerCommand({
+          ...nextCommand,
+          campaignId,
+          status: 'FAILED',
+          message,
+          refunded: null,
+        })
+        setOwnerStarterOpen(false)
+        await load(true)
+      } else {
+        setOwnerCommand(null)
+        if (user?.id) clearOwnerCampaignCommand(user.id)
+        setOwnerStartError(message)
+      }
+    } finally {
+      setOwnerStartBusy(false)
+    }
+  }, [ar, authHeader, load, locale, persistOwnerCommand, user?.id])
+
+  useEffect(() => {
+    if (!user?.id) {
+      setOwnerCommand(null)
+      return
+    }
+    setOwnerCommand(readOwnerCampaignCommand(user.id))
+  }, [user?.id])
+
   useEffect(() => {
     if (authLoading || !isAuthenticated) return
     load()
   }, [authLoading, isAuthenticated, load])
+
+  useEffect(() => {
+    if (!ownerCommand?.jobId || !user?.id) return
+    if (['COMPLETED', 'FAILED', 'CANCELLED'].includes(ownerCommand.status)) return
+
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const poll = async () => {
+      const token = authHeader()
+      if (!token || cancelled) return
+      try {
+        let response = await fetch(`/api/automation/jobs/${ownerCommand.jobId}`, {
+          headers: { Authorization: token },
+          cache: 'no-store',
+        })
+        let payload = await response.json().catch(() => ({})) as { job?: PublicAutomationJob }
+        if (response.ok && payload.job?.canResume) {
+          response = await fetch(`/api/automation/jobs/${ownerCommand.jobId}`, {
+            method: 'POST',
+            headers: { Authorization: token },
+          })
+          payload = await response.json().catch(() => ({})) as { job?: PublicAutomationJob }
+        }
+        const job = payload.job
+        if (!response.ok || !job || cancelled) return
+
+        const updated: OwnerCampaignCommand = {
+          ...ownerCommand,
+          campaignId: job.campaignId || ownerCommand.campaignId,
+          status: job.status,
+          message: job.message,
+          refunded: automationRefunded(job.output),
+        }
+        persistOwnerCommand(updated)
+        if (job.terminal) {
+          await load(true)
+          return
+        }
+      } catch {
+        // A transient dashboard read must not overwrite durable server state.
+      }
+      if (!cancelled) timer = setTimeout(poll, 2_500)
+    }
+
+    void poll()
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [
+    authHeader,
+    load,
+    ownerCommand,
+    persistOwnerCommand,
+    user?.id,
+  ])
 
   useEffect(() => {
     if (workspaceGate !== 'hasWorkspace') return
@@ -581,8 +853,9 @@ export default function DashboardPage() {
 
   const timeStr = lastUpdated.toLocaleTimeString(ar ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' })
   const topCampaign = campaigns[0]
-  const connectedAccountCount = connectionSummary?.connected ?? 0
-  const platformConnected = connectedAccountCount > 0
+  const linkedAccountCount = connectionSummary?.linked ?? 0
+  const deliveryReadyCount = connectionSummary?.deliveryReady ?? 0
+  const platformConnected = deliveryReadyCount > 0
   // Display the same core-profile completeness score used by Brand Brain.
   // getBrandBrainReadiness remains a functional generation gate and must not be
   // relabelled as completeness; the two answer different questions.
@@ -628,20 +901,49 @@ export default function DashboardPage() {
         cta: ar ? 'تصحيح Brand Brain' : 'Fix Brand Brain',
       }
     }
-    if (!brandName) {
+    if (!brandReadiness?.ready) {
       return {
         href: '/brand',
         title: ar ? 'أكمل Brand Brain أولاً' : 'Complete Brand Brain first',
-        body: ar ? 'الاستراتيجية والمحتوى يصبحان أقوى عندما يعرف NEXUS السوق والجمهور والعرض.' : 'Strategy and content get stronger when NEXUS understands the market, audience, and offer.',
+        body: ar ? 'أكمل السوق والجمهور والعرض والهدف والمنصات حتى لا يضطر NEXUS إلى اختراع افتراضات.' : 'Complete the market, audience, offer, outcome, and channels so NEXUS does not invent assumptions.',
         cta: ar ? 'فتح Brand Brain' : 'Open Brand Brain',
       }
     }
     if (campaignCount === 0) {
       return {
         href: '/strategy',
-        title: ar ? 'أنشئ استراتيجية تشغيل واضحة' : 'Create a clear operating strategy',
-        body: ar ? 'ابدأ من الاستراتيجية قبل المحتوى أو التصميم حتى يبقى المسار منظمًا.' : 'Start with strategy before content or design so the workflow stays coherent.',
-        cta: ar ? 'فتح الاستراتيجية' : 'Open Strategy',
+        title: ar ? 'دع NEXUS يجهّز حملتك الأولى' : 'Let NEXUS prepare your first campaign',
+        body: ar ? 'حدّد النتيجة التي تريدها، وسيجهّز NEXUS الاستراتيجية ومفاهيم الحملة وتقويمًا أوليًا لتراجعها قبل صناعة المحتوى أو النشر.' : 'Choose the outcome you want. NEXUS will prepare the strategy, campaign concepts, and an initial calendar for review before content production or publishing.',
+        cta: ar ? 'اطلب من NEXUS تجهيزها' : 'Ask NEXUS to prepare it',
+      }
+    }
+    if (topCampaign && contentCount === 0) {
+      const strategyApproved = topCampaign.status === 'ACTIVE'
+      return {
+        href: `/campaigns/${topCampaign.id}`,
+        title: strategyApproved
+          ? (ar ? 'حوّل الاستراتيجية المعتمدة إلى محتوى' : 'Turn the approved strategy into content')
+          : (ar ? 'راجع أول قرار للحملة' : 'Review the first campaign decision'),
+        body: strategyApproved
+          ? (ar
+            ? 'الاستراتيجية محفوظة. افتح الحملة ليجهّز NEXUS حزمة المحتوى القابلة للمراجعة؛ لن يحدث نشر أو إنفاق.'
+            : 'The strategy is saved. Open the campaign so NEXUS can prepare the reviewable content package; nothing will be published or spent.')
+          : (ar
+            ? 'جهّز NEXUS اتجاه الحملة. راجع الاستراتيجية ووافق على الانتقال، ثم سيبدأ تجهيز المحتوى تلقائيًا.'
+            : 'NEXUS prepared the campaign direction. Review the strategy and approve the handoff, then content preparation starts automatically.'),
+        cta: strategyApproved
+          ? (ar ? 'متابعة تجهيز المحتوى' : 'Continue content preparation')
+          : (ar ? 'مراجعة الاستراتيجية' : 'Review strategy'),
+      }
+    }
+    if (topCampaign && contentCount > 0 && scheduledWithEvidence === 0) {
+      return {
+        href: `/campaigns/${topCampaign.id}/content-hub`,
+        title: ar ? 'راجع حزمة المحتوى وسجّل الجدول' : 'Review the content package and record the schedule',
+        body: ar
+          ? 'جهّز NEXUS النصوص والوسائط والمواعيد المقترحة. راجع الحزمة في شاشة واحدة؛ اعتمادها يسجل جدول تنفيذ داخلي فقط، ولا ينشر أو يصرف ميزانية.'
+          : 'NEXUS prepared the copy, media, and proposed dates. Review one package; approval records an internal execution schedule only and does not publish or spend budget.',
+        cta: ar ? 'مراجعة الحزمة' : 'Review package',
       }
     }
     if (executionAction) {
@@ -691,7 +993,56 @@ export default function DashboardPage() {
       body: ar ? 'التعلّم الحقيقي يبدأ فقط بعد وصول بيانات أداء من المنشورات أو الحملات.' : 'Real learning starts only after published content or campaigns collect performance data.',
       cta: ar ? 'فتح التحليلات' : 'Open Analytics',
     }
-  }, [ar, brandName, brandTruthBlocked, campaignCount, contentCount, executionAction, manualScheduled, platformConnected, publishedCount, topCampaign])
+  }, [ar, brandReadiness?.ready, brandTruthBlocked, campaignCount, contentCount, executionAction, manualScheduled, platformConnected, publishedCount, topCampaign])
+
+  const commandCampaign = ownerCommand?.campaignId
+    ? campaigns.find(campaign => campaign.id === ownerCommand.campaignId)
+    : null
+  const ownerCommandRelevant = Boolean(
+    ownerCommand
+    && (
+      !['COMPLETED', 'FAILED', 'CANCELLED'].includes(ownerCommand.status)
+      || commandCampaign?.status === 'DRAFT'
+    ),
+  )
+  const ownerStartEligible = brandUsable && campaignCount === 0 && !ownerCommandRelevant
+  const effectiveAction = useMemo(() => {
+    if (!ownerCommand || !ownerCommandRelevant) return nextAction
+
+    if (ownerCommand.status === 'COMPLETED') {
+      return {
+        href: ownerCommand.campaignId ? `/campaigns/${ownerCommand.campaignId}` : '/campaigns',
+        title: ar ? 'استراتيجيتك جاهزة للمراجعة' : 'Your strategy is ready for review',
+        body: ar
+          ? 'أكمل NEXUS الاستراتيجية ومسار التنفيذ الأولي. راجع القرار الآن؛ لم يحدث نشر أو إنفاق إعلاني.'
+          : 'NEXUS completed the strategy and initial execution path. Review the decision now; nothing was published and no ad budget was spent.',
+        cta: ar ? 'راجع الاستراتيجية' : 'Review strategy',
+      }
+    }
+
+    if (ownerCommand.status === 'FAILED' || ownerCommand.status === 'CANCELLED') {
+      const refundCopy = ownerCommand.refunded === true
+        ? (ar ? ' تم تأكيد إعادة الكريديت المحجوز.' : ' Reserved credits were confirmed returned.')
+        : ''
+      return {
+        href: ownerCommand.campaignId ? `/campaigns/${ownerCommand.campaignId}` : '/campaigns',
+        title: ar ? 'توقف التجهيز قبل اكتمال الاستراتيجية' : 'Preparation stopped before completion',
+        body: `${ownerCommand.message || (
+          ar ? 'يمكن إعادة المحاولة بأمان على نفس المسودة.' : 'You can safely retry on the same draft.'
+        )}${refundCopy}`,
+        cta: ar ? 'إعادة المحاولة بأمان' : 'Retry safely',
+      }
+    }
+
+    return {
+      href: ownerCommand.campaignId ? `/campaigns/${ownerCommand.campaignId}` : '/campaigns',
+      title: ar ? 'NEXUS يجهّز حملتك الآن' : 'NEXUS is preparing your campaign',
+      body: ar
+        ? 'العمل محفوظ في الخلفية ويمكنك مغادرة الصفحة. ستعود هنا للمراجعة فقط، ولن يحدث نشر أو إنفاق.'
+        : 'The work is durable in the background, so you can leave this page. You will return for review only; nothing will be published or spent.',
+      cta: ar ? 'فتح مسار الحملة' : 'Open campaign workstream',
+    }
+  }, [ar, nextAction, ownerCommand, ownerCommandRelevant])
 
   if (authLoading || workspaceGate === 'checking' || workspaceGate === 'noWorkspace') {
     return <DashboardGateSurface mode="loading" ar={ar} framed={!authLoading && isAuthenticated} />
@@ -717,7 +1068,7 @@ export default function DashboardPage() {
         <div className="nx-os-container nx-os-stack">
           <LuxuryWorkspaceHeader
             pageTitle={ar ? 'اليوم' : 'Today'}
-            pageSubtitle={ar ? 'قرار واحد واضح الآن، ثم يتحرك NEXUS معك إلى الخطوة التالية.' : 'One clear decision now, then NEXUS moves with you to the next step.'}
+            pageSubtitle={ar ? 'NEXUS يجهّز العمل؛ أنت تراجع فقط القرارات التي تحتاجك.' : 'NEXUS prepares the work; you only review decisions that need you.'}
             primaryHref={null}
             secondaryHref={null}
           />
@@ -727,22 +1078,48 @@ export default function DashboardPage() {
               <div dir={ar ? 'rtl' : 'ltr'}>
                 <div className="nx-dashboard-ai-chip">
                   <span className="nx-ai-core" aria-hidden="true" />
-                  {ar ? 'قرارك التالي' : 'Your next decision'}
+                  {ar ? 'توصية NEXUS' : 'NEXUS recommends'}
                 </div>
                 <h2 className="mt-3.5 max-w-3xl text-[25px] font-semibold leading-tight tracking-[-0.035em] text-white sm:text-[32px]">
-                  {nextAction.title}
+                  {effectiveAction.title}
                 </h2>
                 <p className="mt-3 max-w-2xl text-[13px] font-medium leading-6 text-slate-300">
-                  {nextAction.body}
+                  {effectiveAction.body}
                 </p>
                 <div className="mt-5 flex flex-wrap items-center gap-3">
-                  <Link
-                    href={nextAction.href}
-                    className="nx-dashboard-command-action"
-                  >
-                    {nextAction.cta}
-                    <ArrowUpRight className="h-4 w-4" />
-                  </Link>
+                  {ownerStartEligible ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOwnerStartError(null)
+                        setOwnerStarterOpen(true)
+                      }}
+                      className="nx-dashboard-command-action"
+                    >
+                      {effectiveAction.cta}
+                      <ArrowUpRight className="h-4 w-4" />
+                    </button>
+                  ) : ownerCommandRelevant && ownerCommand?.status === 'FAILED' ? (
+                    <button
+                      type="button"
+                      disabled={ownerStartBusy}
+                      onClick={() => void startOwnerCampaign(ownerCommand.outcome, ownerCommand)}
+                      className="nx-dashboard-command-action disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {ownerStartBusy
+                        ? (ar ? 'جارٍ إعادة التشغيل…' : 'Restarting…')
+                        : effectiveAction.cta}
+                      <ArrowUpRight className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <Link
+                      href={effectiveAction.href}
+                      className="nx-dashboard-command-action"
+                    >
+                      {effectiveAction.cta}
+                      <ArrowUpRight className="h-4 w-4" />
+                    </Link>
+                  )}
                   <Link
                     href={topCampaign && scheduledWithEvidence > 0
                       ? `/campaigns/${topCampaign.id}/content-hub`
@@ -752,7 +1129,7 @@ export default function DashboardPage() {
                     <ShieldCheck className="h-4 w-4" />
                     {topCampaign && scheduledWithEvidence > 0
                       ? (ar ? 'مراجعة المحتوى والأدلة' : 'Review content evidence')
-                      : (ar ? 'مراجعة الموافقات' : 'Review approvals')}
+                      : (ar ? 'فتح قراراتي' : 'Open my decisions')}
                   </Link>
                   <span className="text-[11px] font-semibold text-slate-400/90">
                     {ar ? `آخر تحديث ${timeStr}` : `Updated ${timeStr}`}
@@ -763,15 +1140,17 @@ export default function DashboardPage() {
               <div className="nx-dashboard-command-side p-[18px]" dir={ar ? 'rtl' : 'ltr'}>
                 <div className="flex items-end justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-cyan-200">{ar ? 'ذكاء NEXUS التشغيلي' : 'NEXUS operating intelligence'}</p>
-                    <p className="mt-1 text-[11px] text-slate-400">{ar ? 'مراحل تستند إلى سجلات حقيقية' : 'Stages backed by real records'}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-cyan-200">{ar ? 'حالة عمل NEXUS' : 'NEXUS work status'}</p>
+                    <p className="mt-1 text-[11px] text-slate-400">{ar ? 'جاهزية مبنية على عمل محفوظ فعليًا' : 'Readiness based on saved work'}</p>
                   </div>
-                  <span className="font-mono text-[30px] font-semibold leading-none text-white" dir="ltr">{workflowCoverage}%</span>
+                  <span className="font-mono text-[26px] font-semibold leading-none text-white" dir="ltr">
+                    {workflowChecks.filter(Boolean).length}/5
+                  </span>
                 </div>
-                <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
-                  <div className="h-full rounded-full bg-[linear-gradient(90deg,#8B82FF,#21C5DF)] shadow-[0_0_18px_rgba(33,197,223,0.6)]" style={{ width: `${workflowCoverage}%` }} />
-                </div>
-                <div className="mt-3.5 grid grid-cols-5 gap-2" aria-label={ar ? 'حالة مراحل مسار العمل' : 'Workflow stage status'}>
+                <p className="mt-3 text-[11px] font-medium leading-5 text-slate-300">
+                  {ar ? 'يعرض ما يستطيع NEXUS تشغيله الآن، وليس توقعًا للنتائج.' : 'Shows what NEXUS can run now—not a prediction of results.'}
+                </p>
+                <div className="mt-3 grid grid-cols-5 gap-2" aria-label={ar ? 'حالة مراحل مسار العمل' : 'Workflow stage status'}>
                   {workflowStages.map(stage => (
                     <div key={stage.label} className="min-w-0">
                       <span
@@ -884,12 +1263,12 @@ export default function DashboardPage() {
                     { label: ar ? 'وثيقة استراتيجية' : 'Strategy document', value: strategyAvailable ? (ar ? 'متاحة' : 'Available') : (ar ? 'غير متاحة' : 'Missing'), good: strategyAvailable },
                     {
                       label: ar ? 'اتصالات المنصات' : 'Platform connections',
-                      value: connectedAccountCount > 0
+                      value: linkedAccountCount > 0
                         ? (ar
-                            ? `المتصلة: ${connectedAccountCount} · التسليم مقيّد لكل منشور`
-                            : `${connectedAccountCount} connected · delivery gated per post`)
+                            ? `${linkedAccountCount} هوية محفوظة · ${deliveryReadyCount} بصلاحية نشر مثبتة`
+                            : `${linkedAccountCount} identities saved · ${deliveryReadyCount} publish-ready`)
                         : (ar ? 'لا توجد' : 'None'),
-                      good: connectedAccountCount > 0,
+                      good: deliveryReadyCount > 0,
                     },
                     { label: ar ? 'دليل أداء' : 'Performance evidence', value: postsWithAnalytics > 0 ? String(postsWithAnalytics) : (ar ? 'بانتظار' : 'Waiting'), good: postsWithAnalytics > 0 },
                   ].map(item => (
@@ -920,7 +1299,7 @@ export default function DashboardPage() {
                   <div className="rounded-[22px] border border-dashed border-slate-200 bg-slate-50 px-5 py-8 text-center">
                     <Target className="mx-auto h-9 w-9 text-slate-300" />
                     <p className="mt-3 text-[14px] font-bold text-slate-700">{ar ? 'لا توجد حملات بعد' : 'No campaigns yet'}</p>
-                    <p className="mt-1 text-[12px] text-slate-500">{ar ? 'ابدأ من الاستراتيجية لتوليد مسار عمل منظم.' : 'Start from strategy to create a coherent workflow.'}</p>
+                    <p className="mt-1 text-[12px] text-slate-500">{ar ? 'حدّد هدفك وسيبني NEXUS مسودة حملة قابلة للمراجعة.' : 'Choose an outcome and NEXUS will build a reviewable campaign draft.'}</p>
                   </div>
                 ) : campaigns.slice(0, 3).map((campaign) => {
                   const status = brandTruthBlocked
@@ -1138,6 +1517,21 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
+      <OwnerCampaignStarterModal
+        open={ownerStarterOpen}
+        busy={ownerStartBusy}
+        error={ownerStartError}
+        locale={locale}
+        authHeader={authHeader}
+        onClose={() => {
+          if (ownerStartBusy) return
+          setOwnerStarterOpen(false)
+          setOwnerStartError(null)
+        }}
+        onStart={outcome => {
+          void startOwnerCampaign(outcome)
+        }}
+      />
     </AppShell>
   )
 }

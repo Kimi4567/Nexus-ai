@@ -911,7 +911,8 @@ describe('strategyProofGuard', () => {
 
     expect(page).toContain("import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'")
     expect(page).toContain('const guardedAiOutput = guardStrategyProof(aiOutput || {}, proofContext) as any')
-    expect(page).toContain('guardStrategyTruthContract(\n    guardedAiOutput?.strategy || {}')
+    expect(page).toContain('const kpiGuardedStrategy = guardStrategyKpis(\n    guardedAiOutput?.strategy || {}')
+    expect(page).toContain('guardStrategyTruthContract(\n    kpiGuardedStrategy,')
     expect(page).toContain('const topHooks: string[] = strategy.topHooks || guardedAiOutput?.topHooks || []')
     expect(page).not.toContain('guardStrategyTruthContract(aiOutput?.strategy || {}')
   })

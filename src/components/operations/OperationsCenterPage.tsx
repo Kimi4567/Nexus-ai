@@ -272,7 +272,7 @@ export default function OperationsCenterPage() {
     return [
       {
         key: 'monitor', icon: <Activity className="h-5 w-5" />,
-        title: copy('مراقب التنفيذ 24/7', '24/7 execution monitor'),
+        title: copy('مراقب التنفيذ المجدول', 'Scheduled execution monitor'),
         detail: overview.monitor.lastRunAt
           ? copy(`آخر نبض محفوظ ${formatDate(overview.monitor.lastRunAt, true)}. التشغيل القادم ${formatDate(overview.monitor.nextRunAt, true)}.`, `Last persisted heartbeat ${formatDate(overview.monitor.lastRunAt, false)}. Next run ${formatDate(overview.monitor.nextRunAt, false)}.`)
           : copy('لا يوجد نبض محفوظ بعد؛ لن نعرضه كتشغيل نشط.', 'No heartbeat is stored yet, so it is not presented as active.'),
@@ -282,10 +282,10 @@ export default function OperationsCenterPage() {
       },
       {
         key: 'connections', icon: <PlugZap className="h-5 w-5" />,
-        title: copy('اتصالات النشر والإعلانات', 'Publishing and ads connections'),
-        detail: copy(`نشر ${overview.connections.social.connected}/${overview.connections.social.total} · إعلانات ${overview.connections.ads.connected}/${overview.connections.ads.total}`, `Publishing ${overview.connections.social.connected}/${overview.connections.social.total} · Ads ${overview.connections.ads.connected}/${overview.connections.ads.total}`),
+        title: copy('جلسات المزود وحسابات الإعلانات', 'Provider sessions and ad accounts'),
+        detail: copy(`جلسات محفوظة ${overview.connections.social.connected}/${overview.connections.social.total} · سجلات إعلانات صالحة ${overview.connections.ads.connected}/${overview.connections.ads.total}`, `Stored sessions ${overview.connections.social.connected}/${overview.connections.social.total} · valid ad records ${overview.connections.ads.connected}/${overview.connections.ads.total}`),
         status: connectionHealth,
-        statusLabel: connectionHealth === 'healthy' ? copy('متصلة', 'Connected') : connectionHealth === 'not_started' ? copy('غير مهيأة', 'Not configured') : copy('تحتاج إصلاحًا', 'Needs repair'),
+        statusLabel: connectionHealth === 'healthy' ? copy('الجلسات صالحة', 'Sessions valid') : connectionHealth === 'not_started' ? copy('غير مهيأة', 'Not configured') : copy('تحتاج إصلاحًا', 'Needs repair'),
         href: '/connections', actionLabel: copy('إدارة الربط', 'Manage'),
       },
       {
@@ -386,7 +386,7 @@ export default function OperationsCenterPage() {
             <>
               <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label={copy('صحة التشغيل', 'Operations health')}>
                 <HealthCard
-                  title={copy('نبض 24/7', '24/7 heartbeat')}
+                  title={copy('نبض المراقب المجدول', 'Scheduled monitor heartbeat')}
                   value={!overview ? '—' : overview.monitor.health === 'healthy' ? copy('النبض يعمل', 'Running') : overview.monitor.health === 'not_started' ? copy('لم يبدأ', 'Not started') : copy('انتباه', 'Attention')}
                   helper={overview ? copy(`آخر تشغيل: ${formatDate(overview.monitor.lastRunAt, true)} · الحوادث التشغيلية تُعرض منفصلة`, `Last run: ${formatDate(overview.monitor.lastRunAt, false)} · workflow incidents are tracked separately`) : copy('جار التحميل', 'Loading')}
                   tone={!overview ? 'neutral' : overview.monitor.health === 'healthy' ? 'ready' : overview.monitor.health === 'critical' ? 'critical' : 'warning'}

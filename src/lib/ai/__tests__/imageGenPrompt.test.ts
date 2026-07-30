@@ -17,6 +17,7 @@ import {
   buildReferencePreservingEditPrompt,
   detectBrandCategory,
   IMAGE_OUTPUT_CLASSIFICATION,
+  extractTextFreeSceneFromCreativeDirection,
   normalizeTextFreeCentralElement,
   TEXT_FREE_BACKGROUND_IMAGE_CONSTRAINTS,
   uploadToCloudinary,
@@ -146,6 +147,35 @@ describe('imageGen prompt contract', () => {
     }))
     expect(concept?.centralElement).toContain('two clearly separated physical reservoirs')
     expect(prompt).toContain('durable transparent vault')
+    expect(prompt).not.toContain('focused product and marketing team')
+  })
+
+  it('preserves a reviewed abstract content-plan scene instead of replacing it with a generic SaaS team', async () => {
+    mockExtractVisualConcept.mockResolvedValueOnce({
+      centralElement: 'focused product and marketing team in a premium dark workspace',
+      emotion: 'clear, controlled',
+      headline: 'Review cash flow',
+      cta: 'Review',
+      visualMood: 'Premium operational clarity',
+    })
+
+    const creativeDirection = 'Editorial conceptual illustration for finance leaders about Invoice Management, using abstract cards, connectors, and neutral workflow symbols. Use no screens, screenshots, readable text, logos, customer likenesses, branded facilities, or implied product evidence.'
+    expect(extractTextFreeSceneFromCreativeDirection(creativeDirection))
+      .toContain('abstract cards, connectors, and neutral workflow symbols')
+
+    const { prompt, concept } = await buildImagePrompt({
+      visualType: 'SOCIAL_PREVIEW',
+      visualStyle: 'Premium',
+      brandName: 'Mizan Flow',
+      industry: 'B2B SaaS',
+      postCaption: 'Review invoice collection days and liquidity pressure clearly.',
+      creativeDirection,
+      platform: 'LINKEDIN',
+      assetRole: 'post_background',
+    })
+
+    expect(concept?.centralElement).toContain('abstract cards, connectors, and neutral workflow symbols')
+    expect(prompt).toContain('abstract cards, connectors, and neutral workflow symbols')
     expect(prompt).not.toContain('focused product and marketing team')
   })
 

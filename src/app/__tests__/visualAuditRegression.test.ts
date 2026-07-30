@@ -30,6 +30,14 @@ describe('visual audit regressions', () => {
     expect(widget).toContain("/^\\/campaigns\\/[^/]+\\/print\\/?$/.test(pathname)")
   })
 
+  it('keeps the assistant away from RTL heading starts on mobile and the desktop sidebar', () => {
+    const widget = source('src/components/ui/ChatWidget.tsx')
+
+    expect(widget).toContain('end-4')
+    expect(widget).toContain('sm:end-auto sm:right-6')
+    expect(widget).not.toContain('bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4')
+  })
+
   it('does not expose implementation flags in CRM copy', () => {
     const alerts = source('src/app/leads/alerts/page.tsx')
     const lifecycle = source('src/app/leads/lifecycle/page.tsx')
@@ -58,16 +66,16 @@ describe('visual audit regressions', () => {
 
   it('uses branded recovery states without emoji placeholders', () => {
     const campaign = source('src/app/campaigns/[id]/page.tsx')
-    const publicForm = source('src/app/lead-form/[publicId]/page.tsx')
+    const publicFormNotFound = source('src/app/lead-form/[publicId]/not-found.tsx')
 
     expect(campaign).not.toContain('<div className="text-5xl mb-4">😕</div>')
     expect(campaign).toContain('This campaign may have been removed')
-    expect(publicForm).toContain('This form is unavailable')
-    expect(publicForm).toContain('Back to NEXUS')
+    expect(publicFormNotFound).toContain('This form is unavailable')
+    expect(publicFormNotFound).toContain('Back to NEXUS')
   })
 
   it('keeps the public lead-form honeypot visually hidden without creating page overflow', () => {
-    const publicForm = source('src/app/lead-form/[publicId]/page.tsx')
+    const publicForm = source('src/app/lead-form/[publicId]/PublicLeadFormClient.tsx')
 
     expect(publicForm).toContain('<label aria-hidden="true" className="sr-only">Website')
     expect(publicForm).not.toContain('-start-[9999px]')

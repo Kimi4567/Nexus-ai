@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
 import './globals.css'
 import { Providers } from './providers'
-import { LanguageProvider } from '@/contexts/LanguageContext'
 import ConsentAwareTelemetry from '@/components/ConsentAwareTelemetry'
+import { isSupportedLocale, LOCALE_COOKIE_NAME } from '@/lib/locale'
 
 export const metadata: Metadata = {
   title: 'NEXUS AI | Marketing Operating System',
@@ -38,23 +39,26 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const cookieStore = await cookies()
+  const savedLocale = cookieStore.get(LOCALE_COOKIE_NAME)?.value
+  const initialLocale = isSupportedLocale(savedLocale) ? savedLocale : 'en'
+  const direction = initialLocale === 'ar' ? 'rtl' : 'ltr'
+
   return (
-    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html lang={initialLocale} dir={direction} data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+Arabic:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       </head>
       <body className="nx-root-body min-h-screen overflow-x-hidden antialiased">
-        <Providers>
-          <LanguageProvider>
-            {children}
-          </LanguageProvider>
+        <Providers initialLocale={initialLocale}>
+          {children}
         </Providers>
         <ConsentAwareTelemetry />
       </body>

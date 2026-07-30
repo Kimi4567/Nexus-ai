@@ -276,11 +276,15 @@ export function finalizeStrategyQuality(
     strategyType: brief.strategyType,
     organicPostCount: brief.organicPostCount,
     hasLeadHandling: Boolean((context.safeBrandProfile as Record<string, unknown>).leadHandling),
+    leadHandling: optionalString((context.safeBrandProfile as Record<string, unknown>).leadHandling),
     hasBudget: context.readiness.hasBudget,
     budgetText: context.proofContext.budgetText,
     hasConversionDestination: hasUsableConversionDestination(
       (context.safeBrandProfile as Record<string, unknown>).conversionDestination,
       brief.primaryGoal,
+    ),
+    conversionDestination: optionalString(
+      (context.safeBrandProfile as Record<string, unknown>).conversionDestination,
     ),
     allowedCompetitors: context.allowedCompetitors,
     goal: brief.primaryGoal,

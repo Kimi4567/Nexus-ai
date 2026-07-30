@@ -48,6 +48,10 @@ import { derivePlatformReadiness, type PlatformState } from '@/lib/platformReadi
 import { deriveStrategyExecutionBridge, type StrategyExecutionRequirement } from '@/lib/strategyExecutionBridge'
 import { deriveStrategyFulfillmentSummary, type StrategyFulfillmentTone } from '@/lib/strategyFulfillment'
 import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
+import {
+  waitForAutomationJob,
+  type AutomationJobClientRecord,
+} from '@/lib/automationJobClient'
 import { buildStrategySnapshot } from '@/lib/strategy/strategySnapshot'
 import type { StrategyApprovalState } from '@/lib/strategyApproval'
 import { validateCampaignStrategyContract } from '@/lib/campaignStrategyContract'
@@ -55,6 +59,7 @@ import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/li
 import { hasUsableConversionDestination } from '@/lib/strategyBriefReadiness'
 import { buildStrategyProofContextFromBrand } from '@/lib/strategy/strategyProofContext'
 import { postLimitReachedMessage } from '@/lib/postLimitMessage'
+import { strategyApprovalFailureMessage } from '@/lib/strategyApprovalFailureMessage'
 
 const deferredPanelFallback = (
   <div className="min-h-28 animate-pulse rounded-2xl border border-slate-200 bg-slate-50" aria-label="Loading campaign panel" />
@@ -523,30 +528,6 @@ function ContentPlanApprovalDialog({
   )
 }
 
-function strategyApprovalFailureMessage(
-  data: { error?: unknown; message?: unknown },
-  locale: string,
-): string {
-  const code = typeof data.error === 'string' ? data.error : ''
-  if (locale === 'ar') {
-    if (code === 'STRATEGY_REVIEW_STALE') {
-      return 'تغيّرت مراجعة الاستراتيجية منذ فتح الصفحة. حدّث الصفحة وراجع النسخة الحالية قبل الاعتماد.'
-    }
-    if (code === 'STRATEGY_APPROVAL_CONCURRENT_CHANGE') {
-      return 'تغيّرت الاستراتيجية أثناء الاعتماد. حدّث الصفحة ثم راجع النسخة الحالية.'
-    }
-    if (code === 'STRATEGY_APPROVAL_BLOCKED') {
-      return 'لا يمكن اعتماد الاستراتيجية حتى تُحل متطلبات الجودة والجاهزية الظاهرة في الصفحة.'
-    }
-    return typeof data.message === 'string'
-      ? data.message
-      : code || 'فشل الاعتماد، حاول مرة أخرى'
-  }
-  return typeof data.message === 'string'
-    ? data.message
-    : code || 'Approval failed, please try again'
-}
-
 function sanitizeStrategyLimitText(text: string): string {
   if (!text) return text
   return text
@@ -614,6 +595,11 @@ function CampaignDetailPageInner() {
   const [generateError, setGenerateError] = useState('')
   const [engineRunning, setEngineRunning] = useState(false)
   const [engineError, setEngineError] = useState('')
+  const [automationJob, setAutomationJob] = useState<AutomationJobClientRecord | null>(null)
+  const automationJobIdRef = useRef<string | null>(null)
+  const [approvalPackageJob, setApprovalPackageJob] = useState<AutomationJobClientRecord | null>(null)
+  const [approvalPackageRunning, setApprovalPackageRunning] = useState(false)
+  const approvalPackageJobIdRef = useRef<string | null>(null)
   const [approvalState, setApprovalState] = useState<'idle' | 'confirming' | 'approving' | 'done'>('idle')
   const [launchState, setLaunchState] = useState<'idle' | 'approving' | 'generating' | 'done'>('idle')
   const [launchError, setLaunchError] = useState('')
@@ -889,6 +875,166 @@ function CampaignDetailPageInner() {
     }
   }, [loading, isAuthenticated, fetchCampaign, fetchOperatingSnapshots, fetchStrategyPlatformReadiness, router, authHeader])
 
+  // A campaign preparation job belongs to the workspace, not to this browser
+  // tab. Reattach to it after refresh/navigation so the owner sees the same
+  // progress without triggering another AI call or another credit reservation.
+  useEffect(() => {
+    if (loading || !isAuthenticated || !campaignId) return
+    const token = authHeader()
+    if (!token) return
+
+    const controller = new AbortController()
+    let ownsObservation = false
+    let observedJobId: string | null = null
+
+    const reattach = async () => {
+      try {
+        const response = await fetch(
+          `/api/automation/jobs?campaignId=${encodeURIComponent(campaignId)}&active=1`,
+          {
+            headers: { Authorization: token },
+            cache: 'no-store',
+            signal: controller.signal,
+          },
+        )
+        if (!response.ok) return
+        const data = await response.json().catch(() => null) as {
+          job?: AutomationJobClientRecord | null
+        } | null
+        if (!data?.job || controller.signal.aborted || automationJobIdRef.current) return
+
+        ownsObservation = true
+        observedJobId = data.job.id
+        automationJobIdRef.current = observedJobId
+        setAutomationJob(data.job)
+        setEngineRunning(true)
+        setGenerating(true)
+        setEngineError('')
+
+        const completed = await waitForAutomationJob(data.job.id, {
+          authorization: token,
+          signal: controller.signal,
+          onProgress: setAutomationJob,
+        })
+        if (completed.timedOut) {
+          setEngineError(
+            locale === 'ar'
+              ? 'يواصل NEXUS العمل في الخلفية. المهمة محفوظة ويمكنك العودة لاحقًا.'
+              : 'NEXUS is continuing in the background. The job is saved and you can return later.',
+          )
+        } else if (completed.job.status === 'COMPLETED') {
+          await fetchCampaign()
+        } else {
+          setEngineError(
+            completed.job.message
+              || (locale === 'ar'
+                ? 'تعذر إكمال تجهيز الحملة، وأُعيد الرصيد المحجوز عند انطباق سياسة الاسترداد.'
+                : 'Campaign preparation could not finish. Reserved credits were returned when the refund policy applied.'),
+          )
+        }
+      } catch {
+        if (!controller.signal.aborted && ownsObservation) {
+          setEngineError(
+            locale === 'ar'
+              ? 'تعذر تحديث حالة المهمة الآن؛ ستواصل المنصة المحاولة في الخلفية.'
+              : 'The job status could not be refreshed. The platform will keep trying in the background.',
+          )
+        }
+      } finally {
+        if (ownsObservation && automationJobIdRef.current === observedJobId) {
+          automationJobIdRef.current = null
+        }
+        if (ownsObservation && !controller.signal.aborted) {
+          setEngineRunning(false)
+          setGenerating(false)
+        }
+      }
+    }
+
+    void reattach()
+    return () => controller.abort()
+  }, [authHeader, campaignId, fetchCampaign, isAuthenticated, loading, locale])
+
+  // Content generation is a second durable workflow. Restore it independently
+  // from strategy preparation so a refresh never triggers another charge or AI
+  // call, and keep the finished package visible until the owner reviews it.
+  useEffect(() => {
+    if (loading || !isAuthenticated || !campaignId) return
+    const token = authHeader()
+    if (!token) return
+
+    const controller = new AbortController()
+    let ownsObservation = false
+    let observedJobId: string | null = null
+
+    const reattachApprovalPackage = async () => {
+      try {
+        const response = await fetch(
+          `/api/automation/jobs?campaignId=${encodeURIComponent(campaignId)}&kind=CAMPAIGN_APPROVAL_PACKAGE&active=1`,
+          {
+            headers: { Authorization: token },
+            cache: 'no-store',
+            signal: controller.signal,
+          },
+        )
+        if (!response.ok) return
+        const data = await response.json().catch(() => null) as {
+          job?: AutomationJobClientRecord | null
+        } | null
+        if (!data?.job || controller.signal.aborted || approvalPackageJobIdRef.current) return
+
+        ownsObservation = true
+        observedJobId = data.job.id
+        approvalPackageJobIdRef.current = observedJobId
+        setApprovalPackageJob(data.job)
+        setLaunchError('')
+
+        if (data.job.status === 'WAITING_FOR_APPROVAL') return
+
+        setApprovalPackageRunning(true)
+        const result = await waitForAutomationJob(data.job.id, {
+          authorization: token,
+          signal: controller.signal,
+          onProgress: setApprovalPackageJob,
+        })
+        if (result.timedOut) {
+          setLaunchError(
+            locale === 'ar'
+              ? 'يواصل NEXUS تجهيز حزمة المحتوى في الخلفية. المهمة محفوظة ويمكنك العودة لاحقًا.'
+              : 'NEXUS is still building the content package. The job is saved and you can return later.',
+          )
+        } else if (result.job.status === 'WAITING_FOR_APPROVAL') {
+          await fetchOperatingSnapshots()
+        } else if (result.job.status !== 'COMPLETED') {
+          setLaunchError(
+            result.job.message
+              || (locale === 'ar'
+                ? 'تعذر تجهيز حزمة المحتوى، وأُعيد الرصيد المحجوز عند انطباق سياسة الاسترداد.'
+                : 'The content package could not be prepared. Reserved credits were returned when applicable.'),
+          )
+        }
+      } catch {
+        if (!controller.signal.aborted && ownsObservation) {
+          setLaunchError(
+            locale === 'ar'
+              ? 'تعذر تحديث حالة حزمة المحتوى الآن؛ ستواصل المنصة العمل في الخلفية.'
+              : 'The content package status could not be refreshed; processing will continue in the background.',
+          )
+        }
+      } finally {
+        if (ownsObservation && approvalPackageJobIdRef.current === observedJobId) {
+          approvalPackageJobIdRef.current = null
+        }
+        if (ownsObservation && !controller.signal.aborted) {
+          setApprovalPackageRunning(false)
+        }
+      }
+    }
+
+    void reattachApprovalPackage()
+    return () => controller.abort()
+  }, [authHeader, campaignId, fetchOperatingSnapshots, isAuthenticated, loading, locale])
+
   // Publishing owns automation, so load its queue from either the unified
   // publishing workspace or the legacy automation deep link.
   useEffect(() => {
@@ -1025,7 +1171,11 @@ function CampaignDetailPageInner() {
     try {
       const res = await fetchCreditOperation(creditOperationScope('campaign:engine', JSON.stringify({ campaignId, force, locale })), `/api/campaigns/${campaignId}/engine`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: token },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: token,
+          Prefer: 'respond-async',
+        },
         body: JSON.stringify({ language: locale, force, ...(force ? confirmation : {}) }),
       })
       const d = await res.json()
@@ -1035,6 +1185,36 @@ function CampaignDetailPageInner() {
           setShowUpgrade(true)
         }
         setEngineError(d.message || d.error || (locale === 'ar' ? 'فشل تشغيل NEXUS Engine' : 'NEXUS Engine failed'))
+        return
+      }
+      if (typeof d.jobId === 'string') {
+        automationJobIdRef.current = d.jobId
+        const completed = await waitForAutomationJob(d.jobId, {
+          authorization: token,
+          onProgress: setAutomationJob,
+        })
+        if (completed.timedOut) {
+          setEngineError(
+            locale === 'ar'
+              ? 'يواصل NEXUS العمل في الخلفية بأمان. يمكنك مغادرة الصفحة والعودة لاحقًا دون بدء خصم جديد.'
+              : 'NEXUS is continuing safely in the background. You can leave and return later without starting another charge.',
+          )
+          return
+        }
+        if (completed.job.status !== 'COMPLETED') {
+          setEngineError(
+            completed.job.message
+              || (locale === 'ar'
+                ? 'تعذر إكمال تجهيز الحملة، وأُعيد الرصيد المحجوز عند انطباق سياسة الاسترداد.'
+                : 'Campaign preparation could not finish. Reserved credits were returned when the refund policy applied.'),
+          )
+          return
+        }
+        await fetchCampaign()
+        if (force) {
+          setShowEngineRebuildModal(false)
+          setEngineRebuildAcknowledged(false)
+        }
         return
       }
       if (d.campaign) {
@@ -1055,6 +1235,7 @@ function CampaignDetailPageInner() {
     } catch {
       setEngineError(locale === 'ar' ? 'خطأ في الشبكة أثناء تشغيل الماكينة' : 'Network error while running the engine')
     } finally {
+      automationJobIdRef.current = null
       setEngineRunning(false)
       setGenerating(false)
     }
@@ -1135,26 +1316,61 @@ function CampaignDetailPageInner() {
     setLaunchState('approving')
     setLaunchError('')
     try {
-      // Step 1: record or idempotently verify the reviewed strategy decision
-      // through the authoritative approval workflow. This does not launch
-      // spend or publish anything.
-      const approveRes = await fetch(`/api/campaigns/${campaignId}/strategy-approval`, {
+      const contentPlanAlreadyExists = campaignPosts.length > 0
+      const prepareContent = !isPaidOnlyStrategy && !contentPlanAlreadyExists
+      const approvalRequest = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: token },
         body: JSON.stringify({
-          action: 'approve',
+          action: prepareContent ? 'approve_and_prepare_content' : 'approve',
           expectedStrategyUpdatedAt: campaign.updatedAt,
+          ...(prepareContent ? {
+            contentPlanConsent: {
+              authorized: true,
+              expectedCreditCost: CONTENT_PLAN_CREDIT_COST,
+              language: locale,
+              mediaSource: 'MIXED',
+            },
+          } : {}),
         }),
-      })
+      }
+      // One replay-safe server command records the reviewed strategy and queues
+      // its content package. The price consent above covers content drafts only;
+      // publishing and spend remain separate decisions.
+      const approveRes = prepareContent
+        ? await fetchCreditOperation(
+          creditOperationScope(
+            'campaign:strategy-content-handoff',
+            JSON.stringify({ campaignId, strategyUpdatedAt: campaign.updatedAt, locale }),
+          ),
+          `/api/campaigns/${campaignId}/strategy-approval`,
+          approvalRequest,
+        )
+        : await fetch(`/api/campaigns/${campaignId}/strategy-approval`, approvalRequest)
       const approveData = await approveRes.json()
+      if (approveData.approval?.state === 'approved') {
+        setCampaign(prev => prev ? { ...prev, status: 'ACTIVE' } : prev)
+        setStrategyApprovalTruth('approved')
+      }
       if (!approveRes.ok || approveData.approval?.state !== 'approved') {
         setApprovalState('confirming')
         setLaunchState('idle')
-        setLaunchError(strategyApprovalFailureMessage(approveData, locale))
+        if (approveData.code === 'INSUFFICIENT_CREDITS') {
+          setUpgradeReason('no_credits')
+          setShowUpgrade(true)
+        } else if (approveData.error === 'POST_LIMIT_REACHED') {
+          setLaunchError(postLimitReachedMessage({
+            locale,
+            limit: approveData.limit ?? 0,
+            current: approveData.current ?? 0,
+            requested: approveData.requested ?? 0,
+            resetsAt: approveData.resetsAt,
+          }))
+        } else {
+          setLaunchError(strategyApprovalFailureMessage(approveData, locale))
+        }
         return
       }
-      setCampaign(prev => prev ? { ...prev, status: 'ACTIVE' } : prev)
-      setStrategyApprovalTruth('approved')
 
       if (isPaidOnlyStrategy) {
         setApprovalState('done')
@@ -1163,49 +1379,42 @@ function CampaignDetailPageInner() {
         return
       }
 
-      // Step 2: Check if content plan already exists
-      setLaunchState('generating')
-      const existingRes = await fetch(`/api/campaigns/${campaignId}/content-plan`, {
-        headers: { Authorization: token },
-      })
-      const existingData = await existingRes.json()
-
-      if (!existingData.posts || existingData.posts.length === 0) {
-        // Generate content plan — use MIXED so all workspace media gets assigned to posts
-        const genRes = await fetchCreditOperation(`campaign:content-plan:${campaignId}`, `/api/campaigns/${campaignId}/generate-content-plan`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: token },
-          body: JSON.stringify({ mediaSource: 'MIXED' }),
-        })
-        const genData = await genRes.json()
-        if (!genRes.ok) {
-          setApprovalState('confirming')
-          setLaunchState('idle')
-          if (genData.code === 'INSUFFICIENT_CREDITS') {
-            setUpgradeReason('no_credits')
-            setShowUpgrade(true)
-          } else if (genData.error === 'POST_LIMIT_REACHED') {
-            setLaunchError(postLimitReachedMessage({
-              locale,
-              limit: genData.limit ?? 0,
-              current: genData.current ?? 0,
-              requested: genData.requested ?? 0,
-              resetsAt: genData.resetsAt,
-            }))
-          } else {
+      if (prepareContent) {
+        setLaunchState('generating')
+        const genData = approveData.contentHandoff ?? {}
+        if (typeof genData.jobId === 'string') {
+          approvalPackageJobIdRef.current = genData.jobId
+          setApprovalPackageJob(genData.job ?? null)
+          setApprovalPackageRunning(true)
+          const result = await waitForAutomationJob(genData.jobId, {
+            authorization: token,
+            onProgress: setApprovalPackageJob,
+          })
+          if (result.timedOut) {
+            setApprovalState('done')
+            setLaunchState('done')
             setLaunchError(
-              locale === 'ar' && typeof genData.messageAr === 'string'
-                ? genData.messageAr
-                : genData.error ?? (locale === 'ar' ? 'فشل توليد خطة المحتوى' : 'Failed to generate content plan'),
+              locale === 'ar'
+                ? 'المهمة محفوظة ويواصل NEXUS تجهيز الحزمة في الخلفية. يمكنك إغلاق الصفحة والعودة لاحقًا.'
+                : 'The job is saved and NEXUS is continuing in the background. You can leave and return later.',
             )
+            return
           }
-          return
+          if (!['WAITING_FOR_APPROVAL', 'COMPLETED'].includes(result.job.status)) {
+            setApprovalState('confirming')
+            setLaunchState('idle')
+            setLaunchError(
+              result.job.message
+                || (locale === 'ar'
+                  ? 'تعذر تجهيز حزمة المحتوى، وأُعيد الرصيد المحجوز عند انطباق سياسة الاسترداد.'
+                  : 'The content package could not be prepared. Reserved credits were returned when applicable.'),
+            )
+            return
+          }
         }
         await refreshBillingStatus()
       }
 
-      // Full/Paid strategies branch into the execution center so neither lane
-      // disappears after approval. Organic-only continues to Content Hub.
       setApprovalState('done')
       setLaunchState('done')
       router.push(includesPaidPlanningStrategy
@@ -1215,6 +1424,9 @@ function CampaignDetailPageInner() {
       setApprovalState('confirming')
       setLaunchState('idle')
       setLaunchError(locale === 'ar' ? 'حدث خطأ، حاول مرة أخرى' : 'Something went wrong, please try again')
+    } finally {
+      approvalPackageJobIdRef.current = null
+      setApprovalPackageRunning(false)
     }
   }
 
@@ -1432,8 +1644,17 @@ function CampaignDetailPageInner() {
   const uiText = (ar: string, en: string): string => uiIsArabic ? ar : en
   const { recordedProof, proofContext } = buildStrategyProofContextFromBrand(brandDNA as any)
   const guardedAiOutput = guardStrategyProof(aiOutput || {}, proofContext) as any
-  const stableStrategy = guardStrategyTruthContract(
+  // KPI scrubbing must run before the reviewed Brand Brain contract. The
+  // contract deliberately restores the user's exact measurable business goal
+  // after unsupported model-invented performance figures have been removed.
+  const kpiGuardedStrategy = guardStrategyKpis(
     guardedAiOutput?.strategy || {},
+    [(brandDNA as any)?.marketingBudget, (brandDNA as any)?.pastAdResults]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
+    { language: strategyLanguage },
+  ) as Record<string, unknown>
+  const strategy = guardStrategyTruthContract(
+    kpiGuardedStrategy,
     proofContext,
     {
       allowedPlatforms: campaign.platforms,
@@ -1443,18 +1664,20 @@ function CampaignDetailPageInner() {
         ? aiOutput.strategyDeliverables.organicPostCount
         : null,
       hasLeadHandling: Boolean((brandDNA as any)?.leadHandling),
+      leadHandling: typeof (brandDNA as any)?.leadHandling === 'string'
+        ? (brandDNA as any).leadHandling
+        : null,
       hasConversionDestination: hasUsableConversionDestination((brandDNA as any)?.conversionDestination, campaign.goal),
+      conversionDestination: typeof (brandDNA as any)?.conversionDestination === 'string'
+        ? (brandDNA as any).conversionDestination
+        : null,
       hasBudget: Boolean((brandDNA as any)?.marketingBudget),
       budgetText: typeof (brandDNA as any)?.marketingBudget === 'string' ? (brandDNA as any).marketingBudget : null,
       allowedCompetitors: Array.isArray((brandDNA as any)?.competitors) ? (brandDNA as any).competitors : [],
-      goal: campaign.goal,
+      goal: typeof (brandDNA as any)?.businessGoal === 'string' && (brandDNA as any).businessGoal.trim()
+        ? (brandDNA as any).businessGoal
+        : campaign.goal,
     },
-  ) as Record<string, unknown>
-  const strategy = guardStrategyKpis(
-    stableStrategy,
-    [(brandDNA as any)?.marketingBudget, (brandDNA as any)?.pastAdResults]
-      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
-    { language: strategyLanguage },
   ) as any
   const savedStrategyDeliverables = aiOutput?.strategyDeliverables && typeof aiOutput.strategyDeliverables === 'object'
     ? aiOutput.strategyDeliverables
@@ -3253,22 +3476,62 @@ function CampaignDetailPageInner() {
               {/* ── Status message + context-aware primary CTA ── */}
               <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold ${engineRunning ? 'text-amber-700' : 'text-slate-950'}`}>
-                    {engineRunning
-                      ? (locale === 'ar' ? '⏳ يجري إعداد المخرجات...' : '⏳ Preparing campaign outputs...')
+                  <p className={`text-sm font-semibold ${(engineRunning || approvalPackageRunning) ? 'text-amber-700' : 'text-slate-950'}`}>
+                    {approvalPackageJob?.status === 'WAITING_FOR_APPROVAL'
+                      ? (locale === 'ar'
+                        ? 'حزمة المحتوى واتجاهات الميديا جاهزة لموافقتك'
+                        : 'Your content and media-direction package is ready for approval')
+                      : approvalPackageRunning
+                        ? (locale === 'ar'
+                          ? `⏳ يجري تجهيز حزمة المحتوى — ${approvalPackageJob?.progress ?? 10}%`
+                          : `⏳ Building your content package — ${approvalPackageJob?.progress ?? 10}%`)
+                      : engineRunning
+                      ? automationJob?.status === 'RETRY_SCHEDULED'
+                        ? (locale === 'ar'
+                          ? `⏳ واجه NEXUS عائقًا مؤقتًا وسيعيد المحاولة تلقائيًا — ${automationJob.progress}%`
+                          : `⏳ NEXUS hit a temporary issue and will retry automatically — ${automationJob.progress}%`)
+                        : (locale === 'ar'
+                          ? `⏳ يجري إعداد الحملة${automationJob ? ` — ${automationJob.progress}%` : '...'}`
+                          : `⏳ Preparing campaign${automationJob ? ` — ${automationJob.progress}%` : '...'}`)
                       : effectiveDisplayOperatingLabel}
                   </p>
-                  {!engineRunning && (
+                  {approvalPackageJob?.status === 'WAITING_FOR_APPROVAL' ? (
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      {locale === 'ar'
+                        ? 'راجع النصوص واتجاهات الصور والفيديو في قرار واحد. لم يتم النشر أو تشغيل أي إنفاق.'
+                        : 'Review copy, image direction, and video direction in one decision. Nothing has been published and no spend was started.'}
+                    </p>
+                  ) : approvalPackageRunning ? (
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      {locale === 'ar'
+                        ? 'المهمة محفوظة بأمان؛ يمكنك مغادرة الصفحة وسيواصل NEXUS التنفيذ دون خصم جديد.'
+                        : 'This job is safely saved; you can leave while NEXUS continues without another charge.'}
+                    </p>
+                  ) : engineRunning && automationJob ? (
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      {locale === 'ar'
+                        ? 'المهمة محفوظة بأمان؛ يمكنك مغادرة الصفحة وسيواصل NEXUS التنفيذ.'
+                        : 'This job is safely saved; you can leave while NEXUS continues working.'}
+                    </p>
+                  ) : !engineRunning && (
                     <p className="mt-1 text-xs leading-5 text-slate-500">{effectiveDisplayOperatingHelper}</p>
                   )}
-                  {(engineError || generateError) && (
-                    <p className="text-xs text-red-400 mt-1">{engineError || generateError}</p>
+                  {(engineError || generateError || launchError) && (
+                    <p className="text-xs text-red-400 mt-1">{engineError || generateError || launchError}</p>
                   )}
                 </div>
 
                 {/* Buttons */}
                 <div className="flex items-center gap-2 flex-shrink-0">
                 {/* Primary CTA — context aware, one at a time */}
+                {approvalPackageJob?.status === 'WAITING_FOR_APPROVAL' && (
+                  <Link
+                    href={`/campaigns/${campaignId}/content-hub`}
+                    className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                  >
+                    {locale === 'ar' ? 'راجع الحزمة ووافق' : 'Review and approve'}
+                  </Link>
+                )}
                 {activeTab !== 0 && !brandTruthBlocked && !engineRunning && operatingState.stage === 'strategy_review_needed' && (
                   <button
                     onClick={openSentinelReview}
@@ -3288,7 +3551,7 @@ function CampaignDetailPageInner() {
                   </button>
                 )}
 
-                {activeTab !== 0 && !isPaidOnlyStrategy && !engineRunning && completeQualityReviewPassed && operatingState.stage === 'content_plan_missing' && !brandTruthBlocked && (
+                {activeTab !== 0 && !isPaidOnlyStrategy && !engineRunning && completeQualityReviewPassed && operatingState.stage === 'content_plan_missing' && !approvalPackageRunning && approvalPackageJob?.status !== 'WAITING_FOR_APPROVAL' && !brandTruthBlocked && (
                   <button
                     onClick={() => {
                       setLaunchError('')
@@ -3306,7 +3569,7 @@ function CampaignDetailPageInner() {
                   </button>
                 )}
 
-                {activeTab !== 0 && !brandTruthBlocked && operatingState.truthFlags.hasContentPlan && (
+                {activeTab !== 0 && !brandTruthBlocked && approvalPackageJob?.status !== 'WAITING_FOR_APPROVAL' && operatingState.truthFlags.hasContentPlan && (
                   <Link
                     href={operatingActionHref}
                     className="px-4 py-2 rounded-xl text-sm font-semibold transition"

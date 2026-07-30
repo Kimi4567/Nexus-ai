@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { normalizeCompetitorUrl, scanCompetitorSource } from '@/lib/competitorMonitoring'
+import { brandContextFingerprint } from '@/lib/brandContextLifecycle'
 import { prisma } from '@/lib/prisma'
 
 const db = prisma as any
@@ -103,16 +104,29 @@ export async function POST(req: NextRequest) {
       }),
       prisma.brandProfile.findUnique({
         where: { workspaceId: workspace.id },
-        select: { competitors: true },
+        select: {
+          brandName: true,
+          industry: true,
+          primaryOffer: true,
+          websiteUrl: true,
+          competitors: true,
+        },
       }),
     ])
     if (duplicate) return NextResponse.json({ error: 'This user-confirmed domain is already monitored.' }, { status: 409 })
     if (activeCount >= MAX_ACTIVE_COMPETITORS) {
       return NextResponse.json({ error: `The current workspace limit is ${MAX_ACTIVE_COMPETITORS} active competitors.` }, { status: 409 })
     }
+    if (!profile?.brandName || !profile.industry) {
+      return NextResponse.json({
+        error: 'Complete the Brand Brain name and industry before confirming a competitor.',
+        code: 'BRAND_CONTEXT_REQUIRED',
+      }, { status: 409 })
+    }
 
     const created = await prisma.$transaction(async transaction => {
       const tx = transaction as any
+      const contextFingerprint = brandContextFingerprint(profile)
       const competitor = await tx.competitor.create({
         data: {
           workspaceId: workspace.id,
@@ -122,6 +136,9 @@ export async function POST(req: NextRequest) {
           domain: normalized.domain,
           baselineStatus: 'RUNNING',
           nextScanAt: new Date(),
+          brandContextFingerprint: contextFingerprint,
+          contextReviewRequired: false,
+          contextReviewedAt: new Date(),
           sources: {
             create: {
               workspaceId: workspace.id,

@@ -22,6 +22,7 @@ export interface GeneratedContentPlanPostLike {
 
 export type ContentPlanSaveGateReason =
   | 'unsupported_clinic_outcome_claim'
+  | 'unsupported_performance_claim'
   | 'unsupported_security_claim'
   | 'unsupported_absolute_claim'
   | 'unsupported_fake_product_visual'
@@ -58,6 +59,10 @@ const CUSTOMER_WORKFLOW_DOMAIN_RE =
   /customer|client|lead|sales|pipeline|crm|طلبات\s+العملاء|متابعة\s+العملاء|العملاء|فرص\s+البيع|إدارة\s+المبيعات|متابعة\s+المبيعات/i
 
 const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> = [
+  {
+    reason: 'unsupported_performance_claim',
+    re: /(?:يمكن\s+أن\s+)?(?:يقلل|يخفض)\s+من\s+أيام\s+التحصيل|تقليل\s+أيام\s+التحصيل|(?:تحسين|تعزيز)\s+(?:تدفقك|التدفق)\s+النقدي|(?:يوفر|يقدم)\s+لك\s+تنبؤات?\s+موثوقة|(?:توقعات|تنبؤات)\s+(?:أسبوعية\s+)?(?:موثوقة|دقيقة|مضمونة)|(?:التنبؤ|توقع)\s+ب?التدفق\s+النقدي\s+بثقة|تقليل\s+الضغط\s+على\s+السيولة|دون\s+الحاجة\s+إلى\s+زيادة\s+الفريق|\bcan\s+(?:reduce|shorten)\s+(?:invoice\s+)?collection\s+(?:days|time)\b|\bimprov(?:e|ing)\s+(?:your\s+)?cash\s+flow\b/iu,
+  },
   {
     reason: 'unsupported_clinic_outcome_claim',
     re: /(?:تحسين|تعزيز|زيادة|رفع)\s+(?:كفاءة|رضا|تجربة|خدمة|رعاية|نتائج)|(?:رضاهم|ثقتهم|رعاية صحية متميزة|مرضى راضين|نتائج أفضل|توفير وقتك)|(?:improve|boost|increase|enhance)\s+(?:clinic efficiency|patient satisfaction|patient experience|care quality|healthcare outcomes|results)|\bsave(?:s|d|ing)?\s+(?:you\s+)?time\b/i,
@@ -130,6 +135,10 @@ const UNSAFE_PATTERNS: Array<{ reason: ContentPlanSaveGateReason; re: RegExp }> 
     reason: 'unsupported_fake_product_visual',
     re: /(?:نص|عبارة|كلمات)[^.!؟]{0,60}(?:على\s+الشاشة|يوضح|توضح|يدعو)|(?:شاحنة|سيارة|مركبة)\s+(?:ال)?توصيل|القهوة\s+تصل\s+إلى\s+(?:العميل|المنزل)|(?:الطلب|القهوة)\s+يصل\s+إلى\s+(?:العميل|المنزل)/iu,
   },
+  {
+    reason: 'unsupported_fake_product_visual',
+    re: /(?:ظهور|إظهار|عرض)\s+(?:سريع\s+ل)?(?:نص|واجهة|منصة|لوحة\s+تحكم)|(?:نص|عبارة|كلمات)[^.!؟]{0,100}يظهر\s+على\s+الشاشة|(?:عرض|إظهار)\s+واجهة\s+[\p{L}\p{N}]/iu,
+  },
 ]
 
 function normalizeText(value: unknown): string {
@@ -143,6 +152,42 @@ function normalizeEditorialTopic(value: string): string {
     .replace(/^Review\s+/i, '')
     .replace(/[.!؟]+$/u, '')
     .trim()
+}
+
+function buildEditorialImageFallback(ctx: ContentPlanRenderContext): string {
+  const pillar = Array.isArray(ctx.contentPillars) && ctx.contentPillars.length > 0
+    ? ctx.contentPillars[ctx.postIndex % ctx.contentPillars.length]
+    : ''
+  const topic = normalizeEditorialTopic(guardContentDraftText(
+    normalizeText(pillar) || normalizeText(ctx.keyMessage) || normalizeText(ctx.campaignName) || 'the reviewed campaign topic',
+    ctx,
+  ))
+  const audience = guardContentDraftText(
+    normalizeText(ctx.targetAudience) || 'the intended audience',
+    ctx,
+  )
+
+  return softenResidualContentPlanAbsolutes(
+    `Editorial conceptual illustration for ${audience} about ${topic}, using abstract cards, connectors, and neutral workflow symbols. Use no screens, screenshots, readable text, logos, customer likenesses, branded facilities, or implied product evidence.`,
+  )
+}
+
+function buildEditorialVideoFallback(ctx: ContentPlanRenderContext): string {
+  const pillar = Array.isArray(ctx.contentPillars) && ctx.contentPillars.length > 0
+    ? ctx.contentPillars[ctx.postIndex % ctx.contentPillars.length]
+    : ''
+  const topic = normalizeEditorialTopic(guardContentDraftText(
+    normalizeText(pillar) || normalizeText(ctx.keyMessage) || normalizeText(ctx.campaignName) || 'the reviewed campaign topic',
+    ctx,
+  ))
+  const audience = guardContentDraftText(
+    normalizeText(ctx.targetAudience) || 'the intended audience',
+    ctx,
+  )
+
+  return softenResidualContentPlanAbsolutes(
+    `Short-form editorial video concept for ${audience} about ${topic}. Use neutral close-up details, simple object motion, and abstract transitions. Use no screens, screenshots, readable text, logos, customer or expert likenesses, branded facilities, testimonials, or implied product evidence.`,
+  )
 }
 
 function isRealEstateContentContext(ctx: ContentPlanRenderContext): boolean {
@@ -238,28 +283,16 @@ export function renderContentPlanDraftImagePrompt(
     pattern.reason === 'unsupported_fake_product_visual'
       && (pattern.re.test(rawPrompt) || pattern.re.test(guardedPrompt))
   ))
-  if (!inventsUnavailableVisualEvidence) return guardedPrompt
+  const hasUsableVisualDirection =
+    /(?:photo|image|illustration|graphic|composition|scene|abstract|color|shape|icon|gradient|texture|layout|visual|صورة|رسم|تصميم|مشهد|ألوان|رموز|تجريدي|إنفوجرافيك)/iu.test(guardedPrompt)
+  if (!inventsUnavailableVisualEvidence && hasUsableVisualDirection) return guardedPrompt
 
   // A generated screenshot, logo, customer, branded facility, or expert would
   // fabricate evidence the user never supplied. Keep the post usable by
   // converting only that visual direction into a truth-safe conceptual brief
   // grounded in the reviewed campaign topic and audience. This does not invent
   // a product view, testimonial, or alternate industry scene.
-  const pillar = Array.isArray(ctx.contentPillars) && ctx.contentPillars.length > 0
-    ? ctx.contentPillars[ctx.postIndex % ctx.contentPillars.length]
-    : ''
-  const topic = normalizeEditorialTopic(guardContentDraftText(
-    normalizeText(pillar) || normalizeText(ctx.keyMessage) || normalizeText(ctx.campaignName) || 'the reviewed campaign topic',
-    ctx,
-  ))
-  const audience = guardContentDraftText(
-    normalizeText(ctx.targetAudience) || 'the intended audience',
-    ctx,
-  )
-
-  return softenResidualContentPlanAbsolutes(
-    `Editorial conceptual illustration for ${audience} about ${topic}, using abstract cards, connectors, and neutral workflow symbols. Use no screens, screenshots, readable text, logos, customer likenesses, branded facilities, or implied product evidence.`,
-  )
+  return buildEditorialImageFallback(ctx)
 }
 
 export function renderContentPlanDraftVideoPrompt(
@@ -278,23 +311,11 @@ export function renderContentPlanDraftVideoPrompt(
     pattern.reason === 'unsupported_fake_product_visual'
       && (pattern.re.test(rawPrompt) || pattern.re.test(guardedPrompt))
   ))
-  if (!inventsUnavailableVisualEvidence) return guardedPrompt
+  const hasUsableVideoDirection =
+    /(?:video|film|scene|shot|camera|motion|transition|animation|فيديو|فيلم|مشهد|لقطة|كاميرا|حركة|انتقال)/iu.test(guardedPrompt)
+  if (!inventsUnavailableVisualEvidence && hasUsableVideoDirection) return guardedPrompt
 
-  const pillar = Array.isArray(ctx.contentPillars) && ctx.contentPillars.length > 0
-    ? ctx.contentPillars[ctx.postIndex % ctx.contentPillars.length]
-    : ''
-  const topic = normalizeEditorialTopic(guardContentDraftText(
-    normalizeText(pillar) || normalizeText(ctx.keyMessage) || normalizeText(ctx.campaignName) || 'the reviewed campaign topic',
-    ctx,
-  ))
-  const audience = guardContentDraftText(
-    normalizeText(ctx.targetAudience) || 'the intended audience',
-    ctx,
-  )
-
-  return softenResidualContentPlanAbsolutes(
-    `Short-form editorial video concept for ${audience} about ${topic}. Use neutral close-up details, simple object motion, and abstract transitions. Use no screens, screenshots, readable text, logos, customer or expert likenesses, branded facilities, testimonials, or implied product evidence.`,
-  )
+  return buildEditorialVideoFallback(ctx)
 }
 
 export function validateContentPlanDraftForSave(fields: Record<string, unknown>): ContentPlanSaveGateResult {

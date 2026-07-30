@@ -12,8 +12,10 @@
  *    empty / provider) so failures are never silent or ambiguous;
  *  - retries ONLY transient failures, in-process, BEFORE any posts are created —
  *    so a retry can never produce duplicate posts or a second credit charge;
- *  - short-circuits deterministic failures (truncated/malformed) that a retry
- *    cannot fix, so the caller refunds and surfaces a clear error fast.
+ *  - repairs common JSON wrappers and retries one malformed response because
+ *    model formatting is not deterministic even with JSON response mode;
+ *  - short-circuits truncated output that requires a smaller request or a
+ *    larger token budget, so the caller refunds and surfaces a clear error.
  *
  * It is intentionally provider-agnostic and fetch-injectable so it can be unit
  * tested without network or prisma.
@@ -61,21 +63,40 @@ export function parseContentPlanResponse(data: ChatResponseLike): ParseResult {
   const content = typeof choice.message?.content === 'string' ? choice.message.content : ''
   if (!content.trim()) return { ok: false, reason: 'empty' }
 
-  let raw: unknown
-  try {
-    raw = JSON.parse(content)
-  } catch {
-    return { ok: false, reason: 'malformed' }
+  const candidates = [
+    content.trim(),
+    content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim(),
+  ]
+  const firstObject = content.indexOf('{')
+  const lastObject = content.lastIndexOf('}')
+  if (firstObject >= 0 && lastObject > firstObject) {
+    candidates.push(content.slice(firstObject, lastObject + 1))
   }
+  const firstArray = content.indexOf('[')
+  const lastArray = content.lastIndexOf(']')
+  if (firstArray >= 0 && lastArray > firstArray) {
+    candidates.push(content.slice(firstArray, lastArray + 1))
+  }
+
+  let raw: unknown
+  for (const candidate of [...new Set(candidates)]) {
+    try {
+      raw = JSON.parse(candidate)
+      break
+    } catch {
+      // Try the next bounded representation. We never evaluate model output.
+    }
+  }
+  if (raw === undefined) return { ok: false, reason: 'malformed' }
 
   const posts = extractPostsArray(raw)
   if (!posts.length) return { ok: false, reason: 'empty' }
   return { ok: true, posts }
 }
 
-/** Transient failures are worth retrying; deterministic ones are not. */
+/** Provider, empty, and malformed model responses are safe to retry pre-save. */
 export function isRetryableFailure(reason: ContentPlanFailure): boolean {
-  return reason === 'provider' || reason === 'empty'
+  return reason === 'provider' || reason === 'empty' || reason === 'malformed'
 }
 
 export interface FetchLikeResponse {
@@ -329,10 +350,10 @@ export function resolveContentPlanSlotScope(
  * Call the content-plan model with a safe in-process retry.
  *
  * `doFetch` performs exactly one provider request (fresh each call). Transient
- * failures — non-OK HTTP, empty/no-choice output, or a thrown network error —
- * retry up to `maxAttempts` with linear backoff. Deterministic failures
- * (truncated / malformed) short-circuit immediately. On success returns the
- * parsed posts and the attempt number it succeeded on.
+ * failures — non-OK HTTP, empty/no-choice output, malformed JSON, or a thrown
+ * network error — retry up to `maxAttempts` with linear backoff. Truncated
+ * output short-circuits because the same token budget cannot repair it. On
+ * success returns the parsed posts and the attempt number it succeeded on.
  *
  * Because this runs before the caller writes any SocialPost rows, a retry can
  * never create duplicate posts, and the caller charges credits exactly once.
@@ -368,7 +389,7 @@ export async function generateContentPlanWithRetry(
     if (parsed.ok) return { result: parsed, attempts: attempt, providerUsages }
 
     last = parsed
-    // Deterministic failure — a retry cannot help. Fail clearly now.
+    // Truncated output needs a different request/token budget, not a replay.
     if (!isRetryableFailure(parsed.reason)) return { result: parsed, attempts: attempt, providerUsages }
     if (attempt < maxAttempts) await sleep(baseDelayMs * attempt)
   }

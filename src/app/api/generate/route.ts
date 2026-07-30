@@ -144,9 +144,12 @@ export async function POST(req: NextRequest) {
       language: language || 'ar',
       strategyType: 'full',
       hasLeadHandling: Boolean(brandProfile?.leadHandling),
+      leadHandling: brandProfile?.leadHandling || null,
       hasConversionDestination: hasUsableConversionDestination(brandProfile?.conversionDestination, campaign.goal),
+      conversionDestination: brandProfile?.conversionDestination || null,
       hasBudget: Boolean(brandProfile?.marketingBudget),
       budgetText: brandProfile?.marketingBudget || null,
+      goal: brandProfile?.businessGoal || campaign.goal,
     })
     assertCampaignStrategyContract(strategy, { language: language || 'ar' })
 

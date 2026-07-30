@@ -38,6 +38,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/automation-jobs",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/weekly-brief",
       "schedule": "0 8 * * 1"
     },
@@ -104,6 +108,12 @@
       "maxDuration": 60
     },
     "src/app/api/cron/reconcile-video-generations/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/cron/automation-jobs/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/automation/jobs/[id]/route.ts": {
       "maxDuration": 300
     },
     "src/app/api/cron/publish/route.ts": {

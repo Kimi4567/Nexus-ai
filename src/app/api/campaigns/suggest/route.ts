@@ -22,6 +22,11 @@ import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/a
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { readOpenAIChatUsage, summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
+import {
+  AiProviderCircuitOpenError,
+  AiProviderRequestError,
+  fetchAiProvider,
+} from '@/lib/ai/providerFetch'
 
 /* ═══════════════════════════════════════════════════════════════
    POST /api/campaigns/suggest
@@ -164,7 +169,7 @@ Rules:
 
     const freshPrompt = `${prompt}\n\nProduce an alternate wording while preserving every supplied fact and uncertainty label.`
 
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -250,14 +255,21 @@ Rules:
     })
   } catch (error) {
     console.error('POST /api/campaigns/suggest error:', error)
+    const providerFailure = error instanceof AiProviderRequestError
+      || error instanceof AiProviderCircuitOpenError
     if (chargedUserId && chargedCredit) {
       await refundCreditDeduction({
         userId: chargedUserId,
         action: 'AI_FIELD_SUGGESTION',
         deduction: chargedCredit,
-        reason: 'Campaign suggestion failed',
+        reason: providerFailure ? 'NEXUS AI service error' : 'Campaign suggestion failed',
       })
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return providerFailure
+      ? NextResponse.json(
+          { error: 'NEXUS AI could not create a suggestion. Credits were restored.' },
+          { status: 502 },
+        )
+      : NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

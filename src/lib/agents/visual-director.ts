@@ -24,6 +24,8 @@ import {
   type OpenAITextUsage,
   type ProviderUsageSummary,
 } from '@/lib/ai/providerEconomics'
+import { fetchAiProvider } from '@/lib/ai/providerFetch'
+import { guardConceptCreativeBrief } from '@/lib/ai/creativeBriefTruthGuard'
 
 // ─── Input Types ─────────────────────────────────────────────────────────────
 
@@ -40,6 +42,7 @@ export interface CampaignContext {
   audience?: string
   tone?: string
   language?: string
+  platforms?: string[]
   brand?: {
     name?: string
     businessType?: string
@@ -49,6 +52,7 @@ export interface CampaignContext {
     writingStyle?: string
     painPoints?: string
     desires?: string
+    verifiedProof?: string[]
   }
   strategy?: {
     positioning?: string
@@ -122,7 +126,7 @@ async function callGPT4oVision(
   userText: string,
   imageUrl: string
 ): Promise<{ result: any; usage: OpenAITextUsage }> {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -161,7 +165,7 @@ async function callOpenAI(
   userPrompt: string,
   maxTokens = 2500
 ): Promise<{ result: any; usage: OpenAITextUsage }> {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -199,10 +203,12 @@ function buildContextBlock(ctx: CampaignContext): string {
     `GOAL: ${ctx.campaignGoal || 'Not specified'}`,
     `AUDIENCE: ${ctx.audience || 'Not specified'}`,
     `TONE: ${ctx.tone || 'Professional'}`,
+    `ALLOWED CAMPAIGN PLATFORMS: ${(ctx.platforms || []).join(', ') || 'Not specified'}`,
     `BRAND: ${b.name || 'Unknown'} (${b.businessType || 'Business'})`,
     `VISUAL STYLE: ${b.visualStyle || 'Not specified'}`,
     `COLOR PALETTE: ${b.colorPalette || 'Not specified'}`,
     `UNIQUE VALUE: ${b.uniqueValue || 'Not specified'}`,
+    `VERIFIED PROOF: ${(b.verifiedProof || []).join(' | ') || 'None supplied'}`,
     `POSITIONING: ${s.positioning || 'Not specified'}`,
     `KEY MESSAGE: ${s.keyMessage || 'Not specified'}`,
     `VISUAL DIRECTION: ${s.visualDirection || 'Not specified'}`,
@@ -439,7 +445,11 @@ export async function generateVisualConcepts(ctx: CampaignContext): Promise<Crea
 
 Act as a senior creative director producing executable visual concepts from the supplied brief. Do not claim personal production history or guaranteed results.
 
-When you write an image prompt, it is immediately usable by a Midjourney operator or a professional photographer. When you write a storyboard, a director can shoot it without additional questions. When you write a production brief, a production assistant can source every prop, location, and talent requirement from it.
+This is CONCEPT MODE with no owned product screenshots, customer footage, or verified production assets. Use abstract editorial systems only. Do not depict people, customers, experts, product UI, dashboards, interfaces, screens, phones, laptops, tablets, smartwatches, notifications, testimonials, logos, readable generated text, or a product outcome. Do not invent features or show a result improving. Copy, CTA, and brand marks remain separate editable layers for later review.
+
+Use only the ALLOWED CAMPAIGN PLATFORMS in the supplied context. Repeating an allowed platform is preferable to inventing TikTok, Facebook, or any other channel outside the approved campaign.
+
+When you write an image prompt, it must be immediately usable by an illustrator or motion designer producing an abstract editorial background plate. When you write a storyboard, every frame must remain an abstract system of cards, markers, connectors, and category symbols. When you write a production brief, it must describe graphic composition, motion, palette, safe zones, and editable layers without talent, locations, product screens, devices, logos, or readable generated text.
 
 YOUR PRODUCTION LANGUAGE STANDARDS:
 
@@ -473,25 +483,25 @@ Return JSON with exactly these fields:
 {
   "imagePrompts": [
     {
-      "platform": "e.g., Instagram Feed, TikTok Cover, Facebook Ad, LinkedIn Post",
-      "style": "Specific visual style: e.g., 'clean flat-lay product on marble, warm tones', 'dark moody lifestyle, natural window light'",
-      "prompt": "Complete image generation prompt for Midjourney/DALL-E — include: subject, setting, lighting setup, mood, composition rule (rule of thirds/center), color palette, specific props or environment, photographic style (editorial, commercial, candid), camera perspective",
+      "platform": "one value from ALLOWED CAMPAIGN PLATFORMS only",
+      "style": "Specific abstract editorial or information-design style with no people, devices, interfaces, or logos",
+      "prompt": "Complete image generation prompt — include abstract category symbols, composition, lighting, mood, palette, negative space, and editable-layer boundaries; never depict people, product UI, devices, notifications, readable text, logos, testimonials, or outcomes",
       "aspectRatio": "e.g., 1:1, 9:16, 16:9, 4:5",
-      "notes": "What to emphasize in production, what to avoid, key brand elements to include"
+      "notes": "What abstract visual hierarchy to emphasize and which unsupported evidence to avoid"
     }
   ],
   "storyboardScenes": [
     {
       "sceneNumber": 1,
-      "description": "What happens — action, subject, storyline beat",
-      "visualNotes": "Camera angle (eye-level/overhead/low angle), movement (static/pan/zoom), background, lighting",
-      "textOverlay": "On-screen text, caption, or CTA — or 'none'",
+      "description": "How abstract cards, markers, connectors, and category symbols move; no product use or customer result",
+      "visualNotes": "Composition, motion, background, lighting, and safe zones; no people, devices, screens, notifications, logos, or readable text",
+      "textOverlay": "always 'none — add reviewed copy later as a separate editable layer'",
       "duration": "e.g., '2-3 seconds'",
-      "platform": "e.g., Instagram Reel"
+      "platform": "one value from ALLOWED CAMPAIGN PLATFORMS only"
     }
   ],
-  "productionBrief": "Full 150-200 word production brief: recommended locations/settings, lighting setup (natural vs studio), required props and wardrobe, talent direction (expressions, poses, energy), shooting sequence, post-processing direction (filters, color grading), what to absolutely avoid",
-  "moodDescription": "2-3 sentences describing the overall visual mood, aesthetic, and emotional register of this campaign",
+  "productionBrief": "Full production brief for abstract editorial background plates: composition system, motion, palette, negative space, editable layers, and what to avoid. No talent, locations, product UI, devices, notifications, logos, readable generated text, testimonials, or outcomes",
+  "moodDescription": "2-3 sentences describing a precise, evidence-neutral visual mood without implying product behavior or results",
   "colorDirections": [
     "Color direction 1 — specific to brand palette and campaign goal",
     "Color direction 2",
@@ -499,13 +509,9 @@ Return JSON with exactly these fields:
     "Color direction 4"
   ],
   "platformLayouts": {
-    "instagram_feed": "Specific layout direction for Instagram feed post — placement, negative space, text positioning",
-    "instagram_stories": "Layout direction for 9:16 Stories — framing, safe zones, animation direction",
-    "tiktok_reel": "Direction for TikTok/Reels — hook frame, caption position, end card",
-    "facebook_ad": "Facebook ad layout — headline placement, image zone, CTA button area",
-    "linkedin": "LinkedIn post direction — professional framing, what works for this audience"
+    "approved_platform_key": "Layout direction for an allowed campaign platform — abstract focal system, safe zones, and separately reviewed copy/CTA/brand layers"
   },
-  "creativeNotes": "3-5 key creative decisions and the specific strategic reason each one fits this brand and campaign"
+  "creativeNotes": "3-5 evidence-neutral creative decisions using abstract workflow symbols only"
 }
 
 Generate 6 imagePrompts and 5 storyboardScenes.`
@@ -524,9 +530,7 @@ Generate 6 imagePrompts and 5 storyboardScenes.`
     industry: ctx.brand?.businessType,
   })
 
-  return {
-    mode: 'concept',
-    generatedAt: new Date().toISOString(),
+  const guarded = guardConceptCreativeBrief({
     imagePrompts: Array.isArray(result.imagePrompts) ? result.imagePrompts : [],
     storyboardScenes: Array.isArray(result.storyboardScenes) ? result.storyboardScenes : [],
     productionBrief: result.productionBrief || '',
@@ -536,6 +540,19 @@ Generate 6 imagePrompts and 5 storyboardScenes.`
       ? result.platformLayouts
       : {},
     creativeNotes: result.creativeNotes || '',
+  }, {
+    audience: ctx.audience,
+    campaignGoal: ctx.campaignGoal,
+    campaignName: ctx.campaignName,
+    brandName: ctx.brand?.name,
+    brandPalette: ctx.brand?.colorPalette,
+    allowedPlatforms: ctx.platforms,
+  })
+
+  return {
+    mode: 'concept',
+    generatedAt: new Date().toISOString(),
+    ...guarded,
     providerUsage: summarizeOpenAITextUsage('gpt-4o', [response.usage]),
   }
 }

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   campaignUpdate: vi.fn(),
   snapshotCreate: vi.fn(),
   historyCreateMany: vi.fn(),
+  automationJobUpdateMany: vi.fn(),
   learningCreateMany: vi.fn(),
   refreshApprovalPreferences: vi.fn(),
   reviewBrandTruth: vi.fn(),
@@ -55,6 +56,7 @@ vi.mock('@/lib/prisma', () => ({
       campaign: { update: mocks.campaignUpdate },
       campaignSnapshot: { create: mocks.snapshotCreate },
       postStatusHistory: { createMany: mocks.historyCreateMany },
+      automationJob: { updateMany: mocks.automationJobUpdateMany },
     }),
   },
 }))
@@ -133,6 +135,7 @@ beforeEach(() => {
   mocks.campaignUpdate.mockResolvedValue({ snapshotVersion: 2 })
   mocks.snapshotCreate.mockResolvedValue({ id: 'content-snapshot-2', version: 2, payloadHash: 'content-hash' })
   mocks.historyCreateMany.mockResolvedValue({ count: 1 })
+  mocks.automationJobUpdateMany.mockResolvedValue({ count: 1 })
   mocks.learningCreateMany.mockResolvedValue({ count: 1 })
   mocks.refreshApprovalPreferences.mockResolvedValue({ created: 1 })
 })
@@ -148,6 +151,14 @@ describe('POST approve-content-plan', () => {
       where: expect.objectContaining({ id: 'post-1', status: 'DRAFT', updatedAt: reviewedAt }),
     }))
     expect(mocks.refreshApprovalPreferences).toHaveBeenCalledWith('workspace-1')
+    expect(mocks.automationJobUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        campaignId: 'campaign-1',
+        kind: 'CAMPAIGN_APPROVAL_PACKAGE',
+        status: 'WAITING_FOR_APPROVAL',
+      }),
+      data: expect.objectContaining({ status: 'COMPLETED', currentStep: 'approved' }),
+    }))
   })
 
   it('rolls back the batch when any reviewed draft changes concurrently', async () => {

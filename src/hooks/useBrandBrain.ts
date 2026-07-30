@@ -67,6 +67,13 @@ export interface BrandProfile {
   campaignObjective?: 'leads' | 'sales' | 'awareness' | 'traffic' | null
 }
 
+export interface BrandSaveImpact {
+  required: boolean
+  competitorsPaused: number
+  signalsDismissed: number
+  proposalsDismissed: number
+}
+
 const ARRAY_FIELDS: (keyof BrandProfile)[] = [
   'toneKeywords',
   'avoidKeywords',
@@ -161,6 +168,7 @@ export function useBrandBrain() {
   const [error, setError] = useState<string | null>(null)
   const [maturity, setMaturity] = useState<BrandMaturityResult | null>(null)
   const [contract, setContract] = useState<BrandBrainContract | null>(null)
+  const [lastSaveImpact, setLastSaveImpact] = useState<BrandSaveImpact | null>(null)
   const requestSeq = useRef(0)
 
   const fetchBrand = useCallback(async () => {
@@ -181,6 +189,7 @@ export function useBrandBrain() {
       setBrand(null)
       setMaturity(null)
       setContract(null)
+      setLastSaveImpact(null)
       setLoading(false)
       setError(null)
       return
@@ -252,6 +261,7 @@ export function useBrandBrain() {
   const saveBrand = useCallback(async (data: Partial<BrandProfile>) => {
     setSaving(true)
     setError(null)
+    setLastSaveImpact(null)
     try {
       const res = await fetch('/api/brand', {
         method: 'POST',
@@ -267,6 +277,7 @@ export function useBrandBrain() {
       setBrand(normalized)
       setMaturity(result.maturity ?? (normalized ? calculateBrandMaturity(normalized) : null))
       setContract(result.contract ?? null)
+      setLastSaveImpact(result.dependentMemoryReview ?? null)
       return true
     } catch {
       setError('تعذّر حفظ البيانات. حاول مجدداً.')
@@ -288,6 +299,7 @@ export function useBrandBrain() {
     completeness: score,
     maturity: derivedMaturity,
     contract,
+    lastSaveImpact,
     missingFields: missing,
     loading,
     saving,

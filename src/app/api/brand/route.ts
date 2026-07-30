@@ -5,6 +5,12 @@ import { calculateBrandMaturity, snapshotBrandMaturity } from '@/lib/brandMaturi
 import { buildBrandBrainContract, getChangedBrandFields } from '@/lib/brandBrainContract'
 import { normalizeBusinessGoal } from '@/lib/businessGoals'
 import { mergeApprovedEvidenceProofs } from '@/lib/brandEvidence'
+import {
+  type BrandContextInvalidationResult,
+  type BrandContextInvalidationStore,
+  hasBrandIdentityChange,
+  invalidateDependentBrandContext,
+} from '@/lib/brandContextLifecycle'
 
 function toStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -227,6 +233,12 @@ export async function POST(req: NextRequest) {
       previous as unknown as Record<string, unknown> | null,
       profileData,
     )
+    let dependentMemoryReview: BrandContextInvalidationResult = {
+      required: false,
+      competitorsPaused: 0,
+      signalsDismissed: 0,
+      proposalsDismissed: 0,
+    }
 
     const brandProfile = changedFields.length === 0 && previous
       ? previous
@@ -249,6 +261,27 @@ export async function POST(req: NextRequest) {
               },
             },
           })
+
+          if (previous && hasBrandIdentityChange(changedFields)) {
+            dependentMemoryReview = await invalidateDependentBrandContext(
+              tx as unknown as BrandContextInvalidationStore,
+              workspace.id,
+              changedFields,
+            )
+            await tx.marketingLearningEvent.create({
+              data: {
+                workspaceId: workspace.id,
+                eventType: 'BRAND_CONTEXT_INVALIDATED',
+                source: 'BRAND_BRAIN',
+                actor: 'SYSTEM',
+                metadata: {
+                  changedFields,
+                  ...dependentMemoryReview,
+                  action: 'PAUSED_FOR_USER_REVIEW',
+                },
+              },
+            })
+          }
           return saved
         })
 
@@ -261,7 +294,13 @@ export async function POST(req: NextRequest) {
 
     const contract = await buildContract(workspace.id, profileWithMaturity)
 
-    return NextResponse.json({ brandProfile: profileWithMaturity, maturity, contract, success: true })
+    return NextResponse.json({
+      brandProfile: profileWithMaturity,
+      maturity,
+      contract,
+      dependentMemoryReview,
+      success: true,
+    })
   } catch (error) {
     console.error('POST /api/brand error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

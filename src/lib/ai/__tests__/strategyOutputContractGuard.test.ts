@@ -1181,6 +1181,53 @@ describe('guardStrategyOutputContract', () => {
       .toBe('فريق الاستقبال يتابع مع العملاء لتأكيد المواعيد')
   })
 
+  it('forces conversion, lead handoff, and detailed goal back to reviewed Brand Brain facts', () => {
+    const conversionDestination = 'صفحة هبوط ثنائية اللغة مع نموذج حجز Demo ثم واتساب'
+    const leadHandling = 'موظف نجاح العملاء يؤهل الطلب ثم يحجز جلسة الإعداد'
+    const businessGoal = 'حجز 30 تجربة Demo مؤهلة خلال 90 يومًا وتحويل 20% منها إلى اشتراك مدفوع'
+    const out = guardStrategyOutputContract({
+      businessObjective: {
+        primary: 'Increase demo bookings',
+        marketing: 'Increase awareness',
+        conversionAction: 'The conversion destination is not set yet.',
+        expectedUserAction: 'Confirm a destination.',
+        successIn30Days: 'Establish a baseline for demo bookings.',
+      },
+      contentAnglesDetailed: [{
+        responseHandoff: 'Customer success team follows up.',
+      }],
+      funnelStages: [{
+        nextStep: 'Sales team engages with article readers.',
+      }],
+      weeklyExecutionPlan: [{
+        executionNote: 'Sales team follows up after every response.',
+      }],
+      riskNotes: [
+        'Conversion destination is missing.',
+        'Funnel risk with missing conversion destination.',
+      ],
+      missingData: ['conversionDestination', 'pixel'],
+    }, {
+      language: 'bilingual',
+      goal: businessGoal,
+      hasConversionDestination: true,
+      conversionDestination,
+      hasLeadHandling: true,
+      leadHandling,
+    })
+
+    expect(out.businessObjective.primary).toBe(businessGoal)
+    expect(out.businessObjective.conversionAction).toBe(conversionDestination)
+    expect(out.businessObjective.expectedUserAction).toBe(conversionDestination)
+    expect(out.businessObjective.successIn30Days).toMatch(/نستمر/)
+    expect(out.contentAnglesDetailed[0].responseHandoff).toBe(leadHandling)
+    expect(out.funnelStages[0].nextStep).toBe(leadHandling)
+    expect(out.weeklyExecutionPlan[0].executionNote).toBe(leadHandling)
+    expect(out.riskNotes).toEqual([])
+    expect(out.missingData).toEqual(['pixel'])
+    expect(JSON.stringify(out)).not.toMatch(/Sales team|destination is (?:not set|missing)/i)
+  })
+
   it('repairs broken Arabic phrases and removes unsupported conversion CTAs', () => {
     const out = guardStrategyOutputContract({
       positioning: 'دار سكنى هو الاستوديو للأصحاب ويعمل كمنصة مرئية ة دون تعقيد التقنيات اليدوية',
@@ -1358,6 +1405,7 @@ describe('strategy runtime copy contract', () => {
     const i18n = repoFile('src/lib/i18n-context.tsx')
     const modal = repoFile('src/components/RunFullStrategyModal.tsx')
     const campaignPage = repoFile('src/app/campaigns/[id]/page.tsx')
+    const contentPlanRoute = repoFile('src/app/api/campaigns/[id]/generate-content-plan/route.ts')
 
     expect(i18n).toContain("langStartBtn: 'Continue to cost review'")
     expect(i18n).toContain("langStartBtn: 'متابعة لمراجعة التكلفة'")
@@ -1371,8 +1419,11 @@ describe('strategy runtime copy contract', () => {
     expect(modal).toContain('Review cost and confirm')
     expect(modal).toContain('Review cost —')
     expect(modal).not.toContain('{rs.langStartBtn}')
-    expect(campaignPage).toContain('guardStrategyTruthContract(\n    guardedAiOutput?.strategy || {},')
+    expect(campaignPage).toContain('const kpiGuardedStrategy = guardStrategyKpis(\n    guardedAiOutput?.strategy || {},')
+    expect(campaignPage).toContain('const strategy = guardStrategyTruthContract(\n    kpiGuardedStrategy,')
     expect(campaignPage).toContain('hasConversionDestination: hasUsableConversionDestination((brandDNA as any)?.conversionDestination, campaign.goal)')
+    expect(contentPlanRoute).toContain('leadHandling: true,')
+    expect(contentPlanRoute).toContain('goal: brandProfile?.businessGoal || campaign.goal,')
   })
 
   it('keeps paid-only campaign pages separate from the organic content-plan workflow', () => {

@@ -24,6 +24,36 @@ const clinicCtx: ContentPlanRenderContext = {
 }
 
 describe('contentPlanStructuredRenderer', () => {
+  it('blocks unverified cash-flow performance claims before persistence', () => {
+    const result = validateContentPlanDraftForSave({
+      caption: 'Mizan Flow يمكن أن يقلل من أيام التحصيل ويساعدك في تحسين تدفقك النقدي.',
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.issues.map(issue => issue.reason)).toContain('unsupported_performance_claim')
+  })
+
+  it('turns a claim-scrubbed non-visual SaaS instruction back into a usable image brief', () => {
+    const prompt = renderContentPlanDraftImagePrompt({
+      imagePrompt: 'An efficient invoice-management workflow infographic for finance managers.',
+    }, {
+      ...clinicCtx,
+      brand: 'Mizan Flow',
+      campaignName: 'Cash flow clarity',
+      keyMessage: 'وضوح التدفق النقدي وإدارة الفواتير',
+      targetAudience: 'المديرون الماليون في شركات الخدمات',
+      contentPillars: ['إدارة الفواتير', 'توقع التدفق النقدي'],
+      offer: 'SaaS subscription with a 14-day trial',
+      brandFacts: ['B2B SaaS subscription for cash-flow forecasting and invoice management'],
+      postIndex: 0,
+    })
+
+    expect(prompt).toContain('Editorial conceptual illustration')
+    expect(prompt).toContain('المديرون الماليون في شركات الخدمات')
+    expect(prompt).not.toMatch(/coffee|Map the current handoffs/i)
+    expect(validateContentPlanDraftForSave({ imagePrompt: prompt }).ok).toBe(true)
+  })
+
   it('replaces real-estate storyboard invention with a source-locked photo contract', () => {
     const prompt = renderContentPlanDraftVideoPrompt({
       videoScript: 'Generate a realtor walking through a new Dubai villa with a private pool and marina view.',
@@ -139,14 +169,35 @@ describe('contentPlanStructuredRenderer', () => {
     expect(captions.every(caption => validateContentPlanDraftForSave({ caption }).ok)).toBe(true)
   })
 
-  it('keeps an underspecified image direction unchanged instead of inventing a clinic scene', () => {
+  it('turns an underspecified non-visual image direction into a safe editorial brief', () => {
     const prompt = renderContentPlanDraftImagePrompt({
       imagePrompt: 'YouTube Shorts concept for appointment follow-up',
     }, { ...clinicCtx, platform: 'YOUTUBE', postIndex: 1 })
 
-    expect(prompt).toBe('YouTube Shorts concept for appointment follow-up')
+    expect(prompt).toContain('Editorial conceptual illustration')
     expect(prompt).not.toContain('clinic reception desk')
     expect(validateContentPlanDraftForSave({ imagePrompt: prompt }).ok).toBe(true)
+  })
+
+  it('blocks the audited Arabic fake-product storyboard and replaces it with a text-free video brief', () => {
+    const raw = "مشهد 1: لقطة لرائد أعمال ينظر إلى شاشة الكمبيوتر بقلق. مشهد 2: ظهور نص 'هل تعاني من رؤية نقدية غير واضحة؟' مشهد 3: عرض سريع لمنصة Mizan Flow وهي تعرض تنبؤات أسبوعية واضحة. مشهد 4: نص 'توقع السيولة مبكرًا بثقة.' يظهر على الشاشة. مشهد 5: دعوة لاتخاذ إجراء 'شاهد كيف يعمل' مع رابط لصفحة الحجز."
+    const prompt = renderContentPlanDraftVideoPrompt({ videoScript: raw }, {
+      ...clinicCtx,
+      brand: 'Mizan Flow',
+      campaignName: 'Cash flow clarity',
+      keyMessage: 'وضوح التدفق النقدي',
+      targetAudience: 'المديرون الماليون في شركات الخدمات',
+      contentPillars: ['توقع التدفق النقدي'],
+      offer: 'SaaS subscription',
+      brandFacts: ['منصة SaaS لإدارة الفواتير وتوقع التدفق النقدي'],
+      platform: 'YOUTUBE_SHORTS',
+    })
+
+    expect(validateContentPlanDraftForSave({ videoPrompt: raw }).ok).toBe(false)
+    expect(prompt).toContain('Short-form editorial video concept')
+    expect(prompt).toContain('Use no screens, screenshots, readable text')
+    expect(prompt).not.toMatch(/ظهور نص|عرض سريع لمنصة|يظهر على الشاشة/)
+    expect(validateContentPlanDraftForSave({ videoPrompt: prompt }).ok).toBe(true)
   })
 
   it('converts fake product UI evidence into a strategy-grounded conceptual direction', () => {
@@ -562,7 +613,7 @@ describe('contentPlanStructuredRenderer', () => {
     }, context)
 
     expect(caption).toContain('بشكل منتظم')
-    expect(videoPrompt).toContain('بشكل منتظم')
+    expect(videoPrompt).toContain('Short-form editorial video concept')
     expect(caption).not.toMatch(/دائمًا|دائما/)
     expect(videoPrompt).not.toMatch(/دائمًا|دائما/)
     expect(validateContentPlanDraftForSave({ caption, videoPrompt }).ok).toBe(true)

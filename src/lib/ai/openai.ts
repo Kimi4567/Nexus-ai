@@ -6,6 +6,7 @@
 
 import { getLanguageInstruction } from './langHelper'
 import { recordOpenAIProviderUsage } from './providerUsageContext'
+import { fetchAiProvider } from './providerFetch'
 
 const MODEL = 'gpt-4o-mini'
 
@@ -27,7 +28,7 @@ async function callOpenAI(
   jsonMode = true,
   maxTokens = 4000
 ): Promise<any> {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -43,13 +44,10 @@ async function callOpenAI(
       max_tokens: maxTokens,
       ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
     }),
+  }, {
+    providerName: 'OpenAI',
+    timeoutMs: 60_000,
   })
-
-  if (!response.ok) {
-    const err = await response.text().catch(() => '')
-    console.error('[OpenAI] API error:', response.status, err.slice(0, 300))
-    throw new Error(`OpenAI API error: ${response.status}`)
-  }
 
   const data = await response.json()
   recordOpenAIProviderUsage(data?.usage)

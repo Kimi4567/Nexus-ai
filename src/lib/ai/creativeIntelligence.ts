@@ -6,6 +6,7 @@ import {
   type MediaIntelligenceAnalysis,
 } from '@/lib/creativeIntelligence'
 import { readOpenAIChatUsage, summarizeOpenAITextUsage, type ProviderUsageSummary } from '@/lib/ai/providerEconomics'
+import { fetchAiProvider } from '@/lib/ai/providerFetch'
 
 const MODEL = 'gpt-4o'
 
@@ -185,7 +186,7 @@ Return one JSON object exactly in this shape:
     }
   }
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -253,7 +254,7 @@ export async function adaptPostCopyToMedia(input: {
   brandContext: Record<string, unknown>
   strategyContext: unknown
 }): Promise<AdaptedCopyResult> {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

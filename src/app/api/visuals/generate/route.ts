@@ -562,7 +562,17 @@ export async function POST(req: NextRequest) {
       referenceImageUrl: referenceMedia?.url,
       allowAdvertisingSceneTransformation: Boolean(referenceMedia),
       campaignMessage: ctx.postCaption || ctx.keyMessage || ctx.campaignGoal,
-      creativeDirection: concept?.centralElement || ctx.creativeRequirement?.visualConcept || ctx.visualDirection,
+      creativeDirection: [
+        ctx.creativeDirection
+          ? `ORIGINAL REVIEWED DIRECTION: ${ctx.creativeDirection}`
+          : '',
+        concept?.centralElement
+          ? `PROVIDER SCENE DERIVED FROM THAT DIRECTION: ${concept.centralElement}`
+          : '',
+        !ctx.creativeDirection && !concept?.centralElement
+          ? ctx.creativeRequirement?.visualConcept || ctx.visualDirection || ''
+          : '',
+      ].filter(Boolean).join('\n'),
       referenceEvidence,
       targetFormat: targetImageFormat,
       formatValidation,

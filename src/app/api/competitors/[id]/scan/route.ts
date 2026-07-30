@@ -17,6 +17,12 @@ export async function POST(
     include: { sources: { where: { enabled: true }, take: 5 } },
   })
   if (!competitor) return NextResponse.json({ error: 'Competitor not found.' }, { status: 404 })
+  if (competitor.contextReviewRequired) {
+    return NextResponse.json({
+      error: 'The Brand Brain identity changed. Review this competitor against the current brand before scanning.',
+      code: 'BRAND_CONTEXT_REVIEW_REQUIRED',
+    }, { status: 409 })
+  }
   if (competitor.status !== 'ACTIVE') return NextResponse.json({ error: 'Resume this competitor before scanning.' }, { status: 409 })
 
   const run = await db.competitorResearchRun.create({

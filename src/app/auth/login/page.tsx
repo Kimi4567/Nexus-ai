@@ -9,6 +9,7 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabaseClient'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import { getFirstRunJourney, type StrategyState } from '@/lib/firstUserJourney'
 import LuxuryAuthShell from '@/components/auth/LuxuryAuthShell'
+import { useAuth } from '@/lib/auth-context'
 
 function safeInternalRedirect(value: string | null): string | null {
   if (!value || !value.startsWith('/') || value.startsWith('//')) return null
@@ -18,6 +19,7 @@ function safeInternalRedirect(value: string | null): string | null {
 
 function LoginForm() {
   const { t, isRTL, dir } = useI18n()
+  const { isAuthenticated, loading: authLoading } = useAuth()
   const searchParams = useSearchParams()
 
   // Restore saved email if user previously checked "Remember Me"
@@ -37,6 +39,14 @@ function LoginForm() {
   const redirectTo = safeInternalRedirect(
     searchParams.get('redirect') || searchParams.get('redirectTo'),
   )
+
+  // Existing users may arrive here once while their former localStorage
+  // session is migrated to the SSR cookie. Send them back to the requested
+  // protected page after migration, but do not race a normal form submission.
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || loading) return
+    window.location.replace(redirectTo || '/dashboard')
+  }, [authLoading, isAuthenticated, loading, redirectTo])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

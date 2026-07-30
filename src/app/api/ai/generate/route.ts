@@ -14,6 +14,11 @@ import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/a
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { captureOperationalError } from '@/lib/observability/operationalError'
 import { readOpenAIChatUsage, summarizeOpenAITextUsage, type ProviderUsageSummary } from '@/lib/ai/providerEconomics'
+import {
+  AiProviderCircuitOpenError,
+  AiProviderRequestError,
+  fetchAiProvider,
+} from '@/lib/ai/providerFetch'
 
 /* ═══════════════════════════════════════════════════════════════
    /api/ai/generate
@@ -122,7 +127,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(getAiProviderUnavailablePayload(language), { status: 503 })
   }
 
-  const apiKey = process.env.OPENAI_API_KEY!.trim()
+  // The centralized provider adapter replaces this header when Vercel AI
+  // Gateway is active. Keep an empty direct-provider fallback here so an
+  // OIDC-only deployment does not throw before the adapter can route it.
+  const apiKey = process.env.OPENAI_API_KEY?.trim() ?? ''
 
   // ── Credit deduction (before OpenAI call) ─────────────────────
   const creditResult = await checkAndDeductCredits(
@@ -140,7 +148,7 @@ export async function POST(req: NextRequest) {
 
   // Real OpenAI call
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -215,16 +223,29 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (err) {
+    const providerFailure = err instanceof AiProviderRequestError
+      || err instanceof AiProviderCircuitOpenError
     await captureOperationalError(err, {
       operation: 'ai.ad-copy-generate',
       route: '/api/ai/generate',
       component: 'ai',
       method: 'POST',
       requestId: req.headers?.get?.('x-vercel-id') ?? null,
-      statusCode: 500,
+      statusCode: providerFailure ? 502 : 500,
       retryable: true,
     })
-    if (credit) await refundDeductedCredits(userId, credit, 'Unexpected AI generation failure')
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    if (credit) {
+      await refundDeductedCredits(
+        userId,
+        credit,
+        providerFailure ? 'NEXUS AI service error' : 'Unexpected AI generation failure',
+      )
+    }
+    return providerFailure
+      ? NextResponse.json(
+          { error: 'NEXUS AI could not create content. Reserved credits were restored.' },
+          { status: 502 },
+        )
+      : NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -2,74 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { ensureDbUser, getServerUserId } from '@/lib/apiAuth'
 import { readLockedCampaignAllowance } from '@/lib/campaignCommercial'
-import { randomUUID } from 'crypto'
-import type { BrandTone, CampaignGoal, Platform, Prisma } from '@prisma/client'
+import type { BrandTone, CampaignGoal } from '@prisma/client'
 import { buildCampaignPortfolioSummary } from '@/lib/campaignPortfolioSummary'
-
-// Map display names → Prisma Platform enum values
-const PLATFORM_MAP: Record<string, string> = {
-  facebook:       'FACEBOOK',
-  instagram:      'INSTAGRAM',
-  tiktok:         'TIKTOK',
-  'youtube shorts': 'YOUTUBE_SHORTS',
-  youtube:        'YOUTUBE_SHORTS',
-  snapchat:       'SNAPCHAT',
-  linkedin:       'LINKEDIN',
-  pinterest:      'PINTEREST',
-  threads:        'THREADS',
-  x:              'TWITTER',
-  twitter:        'TWITTER',
-  website:        'WEBSITE',
-  // already-uppercase passthrough
-  FACEBOOK:        'FACEBOOK',
-  INSTAGRAM:       'INSTAGRAM',
-  TIKTOK:          'TIKTOK',
-  YOUTUBE_SHORTS:  'YOUTUBE_SHORTS',
-  SNAPCHAT:        'SNAPCHAT',
-  LINKEDIN:        'LINKEDIN',
-  PINTEREST:       'PINTEREST',
-  THREADS:         'THREADS',
-  X:               'TWITTER',
-  TWITTER:         'TWITTER',
-  WEBSITE:         'WEBSITE',
-}
-
-function normalizePlatforms(raw: string[]): Platform[] {
-  const valid = new Set(Object.values(PLATFORM_MAP))
-  return [...new Set(raw
-    .map((p) => PLATFORM_MAP[p] ?? PLATFORM_MAP[p.toLowerCase()] ?? null)
-    .filter((p): p is string => p !== null && valid.has(p)))] as Platform[]
-}
+import { normalizeCampaignPlatformsForPersistence } from '@/lib/campaignInputNormalization'
+import { getOrCreateDefaultProjectForOwner } from '@/lib/campaignCreation.server'
 
 const GOALS = new Set<CampaignGoal>(['SALES', 'AWARENESS', 'LEADS', 'TRAFFIC', 'ENGAGEMENT', 'BRAND_BUILDING'])
 const TONES = new Set<BrandTone>(['LUXURY', 'MODERN', 'ENERGETIC', 'CORPORATE', 'MINIMAL', 'AGGRESSIVE_SALES', 'FRIENDLY', 'PROFESSIONAL'])
 
 function cleanText(value: unknown, max: number): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : ''
-}
-
-async function getOrCreateDefaultProject(
-  tx: Prisma.TransactionClient,
-  userId: string,
-): Promise<{ workspaceId: string; projectId: string }> {
-  // Share the workspace lock used by POST /api/workspaces. This prevents a
-  // first-campaign request racing a first-workspace request on a free account.
-  await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtext($1))', `workspace-limit:${userId}`)
-  let workspace = await tx.workspace.findFirst({ where: { ownerId: userId }, orderBy: { createdAt: 'asc' } })
-  if (!workspace) {
-    workspace = await tx.workspace.create({
-      data: {
-        name: 'My Workspace',
-        slug: `workspace-${userId.slice(0, 8)}-${randomUUID().slice(0, 8)}`,
-        ownerId: userId,
-      },
-    })
-  }
-  let project = await tx.project.findFirst({ where: { workspaceId: workspace.id }, orderBy: { createdAt: 'asc' } })
-  if (!project) {
-    project = await tx.project.create({ data: { name: 'My Project', workspaceId: workspace.id } })
-  }
-  return { workspaceId: workspace.id, projectId: project.id }
 }
 
 // POST /api/campaigns — save a campaign with full AI output
@@ -87,7 +29,7 @@ export async function POST(req: NextRequest) {
     const requestedTone = cleanText(body.tone, 40).toUpperCase() as BrandTone
     const goal = GOALS.has(requestedGoal) ? requestedGoal : 'SALES'
     const tone = TONES.has(requestedTone) ? requestedTone : 'MODERN'
-    const normalizedPlatforms = normalizePlatforms(Array.isArray(body.platforms) ? body.platforms.slice(0, 20) : [])
+    const normalizedPlatforms = normalizeCampaignPlatformsForPersistence(body.platforms)
     const aiOutput = body.aiOutput ?? null
 
     if (name.length < 2) return NextResponse.json({ error: 'A valid campaign name is required' }, { status: 400 })
@@ -99,7 +41,7 @@ export async function POST(req: NextRequest) {
     const thumbnail = THUMBNAILS[Math.floor(Math.random() * THUMBNAILS.length)]
 
     const result = await prisma.$transaction(async (tx) => {
-      const ids = await getOrCreateDefaultProject(tx, userId)
+      const ids = await getOrCreateDefaultProjectForOwner(tx, userId)
       const allowance = await readLockedCampaignAllowance(tx, userId)
       if (allowance.limit !== 999 && allowance.current >= allowance.limit) {
         return { limitReached: true as const, allowance }

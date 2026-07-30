@@ -25,6 +25,8 @@ describe('marketing migration contract harness', () => {
       '20260720161301_landing_page_seo_foundation.sql',
       '20260720181911_enforce_marketing_workspace_coherence.sql',
       '20260721122156_first_party_conversion_measurement.sql',
+      '20260729074931_durable_automation_jobs.sql',
+      '20260729075040_index_automation_job_campaign_workspace_fk.sql',
     ]
 
     for (let index = 1; index < order.length; index += 1) {
@@ -49,6 +51,9 @@ describe('marketing migration contract harness', () => {
     expect(verification).toContain('Expected indexable page without metadata to be rejected')
     expect(verification).toContain('Expected workspace-scoped lead deduplication to reject a duplicate')
     expect(verification).toContain('Expected one-running-experiment invariant to reject a second experiment')
+    expect(verification).toContain('Expected one active campaign automation job per kind')
+    expect(verification).toContain('Expected a cross-workspace automation job campaign to be rejected')
+    expect(verification).toContain('AutomationJob_campaignId_workspaceId_idx')
     expect(verification).toContain('marketing_migration_contract_passed')
   })
 

@@ -9,6 +9,13 @@ const MAX_RESPONSE_BYTES = 1_000_000
 const MAX_REDIRECTS = 3
 const DEFAULT_CADENCE_HOURS = 24
 
+class CompetitorContextChangedError extends Error {
+  constructor() {
+    super('Brand context review is required before monitoring can continue.')
+    this.name = 'CompetitorContextChangedError'
+  }
+}
+
 export interface PageEvidence {
   title: string
   description: string
@@ -368,15 +375,28 @@ export async function scanCompetitorSource(
     where: { id: sourceId },
     include: {
       competitor: true,
-      snapshots: { orderBy: { capturedAt: 'desc' }, take: 1 },
     },
   })
-  if (!source || !source.enabled || source.competitor.status !== 'ACTIVE') {
+  if (
+    !source
+    || !source.enabled
+    || source.competitor.status !== 'ACTIVE'
+    || source.competitor.contextReviewRequired
+    || !source.competitor.brandContextFingerprint
+  ) {
     return { sourceId, checked: false, baselineCreated: false, changed: false, signalCreated: false, error: 'Source is not active.' }
   }
 
   const checkedAt = new Date()
   try {
+    const contextFingerprint = source.competitor.brandContextFingerprint as string
+    const previous = await db.competitorSnapshot.findFirst({
+      where: {
+        sourceId: source.id,
+        contentHash: { startsWith: `${contextFingerprint}:` },
+      },
+      orderBy: { capturedAt: 'desc' },
+    })
     if (!belongsToCompetitorDomain(source.url, source.competitor.domain)) {
       throw new Error('The source no longer belongs to the user-confirmed competitor domain.')
     }
@@ -387,6 +407,17 @@ export async function scanCompetitorSource(
     if (source.etag) conditionalHeaders['If-None-Match'] = source.etag
     if (source.lastModified) conditionalHeaders['If-Modified-Since'] = source.lastModified
     const { response, finalUrl } = await safeFetch(source.url, conditionalHeaders)
+
+    const currentContext = await db.competitor.findFirst({
+      where: {
+        id: source.competitorId,
+        status: 'ACTIVE',
+        contextReviewRequired: false,
+        brandContextFingerprint: contextFingerprint,
+      },
+      select: { id: true },
+    })
+    if (!currentContext) throw new CompetitorContextChangedError()
 
     if (response.status === 304) {
       await db.competitorSource.update({
@@ -420,14 +451,28 @@ export async function scanCompetitorSource(
     const html = await readTextLimited(response)
     const evidence = extractPageEvidence(html)
     if (evidence.normalizedText.length < 80) throw new Error('The source did not expose enough readable public text to monitor reliably.')
-    const contentHash = createHash('sha256').update(evidenceDigest(evidence)).digest('hex')
-    const previous = source.snapshots[0] ?? null
+    const evidenceHash = createHash('sha256').update(evidenceDigest(evidence)).digest('hex')
+    // Context-prefixing keeps the existing database uniqueness contract fully
+    // backward compatible while making identical source content a fresh
+    // baseline after the user confirms a different Brand Brain identity.
+    const contentHash = `${contextFingerprint}:${evidenceHash}`
     const baselineCreated = !previous
     const changed = Boolean(previous && previous.contentHash !== contentHash)
 
     let signalCreated = false
     await prisma.$transaction(async transaction => {
       const tx = transaction as any
+      const stillCurrent = await tx.competitor.findFirst({
+        where: {
+          id: source.competitorId,
+          status: 'ACTIVE',
+          contextReviewRequired: false,
+          brandContextFingerprint: contextFingerprint,
+        },
+        select: { id: true },
+      })
+      if (!stillCurrent) throw new CompetitorContextChangedError()
+
       const snapshot = await tx.competitorSnapshot.upsert({
         where: { sourceId_contentHash: { sourceId: source.id, contentHash } },
         update: {},
@@ -518,6 +563,16 @@ export async function scanCompetitorSource(
       statusCode: response.status,
     }
   } catch (error) {
+    if (error instanceof CompetitorContextChangedError) {
+      return {
+        sourceId,
+        checked: false,
+        baselineCreated: false,
+        changed: false,
+        signalCreated: false,
+        error: error.message,
+      }
+    }
     const message = error instanceof Error ? error.message : 'Competitor source scan failed.'
     await Promise.all([
       db.competitorSource.update({
@@ -550,7 +605,11 @@ export async function claimDueCompetitorSources(limit = 4): Promise<Array<{ id: 
     where: {
       enabled: true,
       nextScanAt: { lte: new Date() },
-      competitor: { status: 'ACTIVE' },
+      competitor: {
+        status: 'ACTIVE',
+        contextReviewRequired: false,
+        brandContextFingerprint: { not: null },
+      },
       OR: [{ leaseUntil: null }, { leaseUntil: { lt: new Date() } }],
     },
     orderBy: { nextScanAt: 'asc' },

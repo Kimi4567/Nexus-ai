@@ -7,11 +7,12 @@ export interface ContentPlanSemanticPost {
 
 export interface ContentPlanSemanticContext {
   brandFacts?: Array<string | string[] | null | undefined>
+  conversionDestination?: string | null
 }
 
 export interface ContentPlanSemanticIssue {
   index: number
-  reason: 'unexpected_operational_saas_drift' | 'missing_strategy_alignment'
+  reason: 'unexpected_operational_saas_drift' | 'unexpected_domain_drift' | 'missing_strategy_alignment' | 'missing_conversion_handoff'
   evidence: string[]
 }
 
@@ -31,6 +32,7 @@ const STOP_WORDS = new Set([
 
 const CLINIC_RE = /clinic|dental|dentist|healthcare|medical|patient|appointment|عياد|أسنان|طبيب|طبي|صحي|مرضى|مريض|مواعيد/i
 const OPERATIONS_PRODUCT_RE = /saas|software|platform|dashboard|workflow|clinicflow|clinic\s+management|practice\s+management|appointment\s+management|operations?\s+(?:app|system|tool|platform)|برنامج|منصة|تطبيق|نظام|لوحة\s+تحكم|سير\s+العمل|إدارة\s+(?:العيادات|المواعيد|المرضى)|تشغيل\s+العيادات/i
+const CONVERSION_ACTION_RE = /\b(?:book|booking|demo|trial|form|whatsapp|calendar|schedule|consultation|call)\b|(?:احجز|حجز|ديمو|تجربة|نموذج|واتساب|تقويم|موعد|مكالمة|استشارة)/iu
 
 const STRONG_DRIFT_PATTERNS: Array<{ label: string; re: RegExp }> = [
   {
@@ -49,6 +51,19 @@ const STRONG_DRIFT_PATTERNS: Array<{ label: string; re: RegExp }> = [
   { label: 'clinic administration', re: /clinic administrative workflow|administrative patient follow[-\s]?up|admin(?:istrative)?\s+(?:workflow|review|step)/i },
   { label: 'internal communication', re: /bilingual administrative communication|internal communication|team ownership|compare (?:the )?(?:current )?workflow|save this idea for review/i },
   { label: 'إدارة داخلية للعيادة', re: /فريق الاستقبال|التسليم بين الزملاء|اجتماع الفريق|قائمة مراجعة تشغيلية|العمل الإداري داخل العيادة|متابعة المرضى إداريًا/i },
+]
+
+const DOMAIN_MARKERS: Array<{ label: string; content: RegExp; brand: RegExp }> = [
+  {
+    label: 'coffee-domain copy in a non-coffee campaign',
+    content: /\bcoffee\b|\broast(?:ed|ing|er|ery)?\b|\bcoffee beans?\b|قهوة|تحميص|حبوب\s+القهوة/iu,
+    brand: /\bcoffee\b|\broast(?:ed|ing|er|ery)?\b|\bcoffee beans?\b|قهوة|تحميص|حبوب\s+القهوة/iu,
+  },
+  {
+    label: 'real-estate copy in a non-property campaign',
+    content: /\breal estate\b|\bproperty listing\b|\bvilla\b|\bapartment\b|عقار|عقارات|فيلا|شقة/iu,
+    brand: /\breal estate\b|\brealty\b|\bproperty\b|\bvilla\b|\bapartment\b|عقار|عقارات|فيلا|شقة/iu,
+  },
 ]
 
 function stringify(value: unknown): string {
@@ -77,6 +92,105 @@ function contentAngles(strategy: unknown): unknown[] {
   if (!strategy || typeof strategy !== 'object') return []
   const candidate = (strategy as Record<string, unknown>).contentAnglesDetailed
   return Array.isArray(candidate) ? candidate : []
+}
+
+function hasVerifiedConversionHandoff(
+  posts: ContentPlanSemanticPost[],
+  conversionDestination: string,
+): boolean {
+  const destinationTokens = tokens(conversionDestination)
+  return posts.some((post) => {
+    const caption = post.caption ?? ''
+    return CONVERSION_ACTION_RE.test(caption)
+      && overlapCount(tokens(caption), destinationTokens) >= 1
+  })
+}
+
+function buildGroundedConversionCta(destination: string): string {
+  const isArabic = /[\u0600-\u06ff]/u.test(destination)
+  if (!isArabic) {
+    const parts: string[] = []
+    if (/\bdemo\b/i.test(destination) && /\b(?:form|landing page)\b/i.test(destination)) {
+      parts.push('Book a demo through the landing-page form')
+    } else if (/\btrial\b/i.test(destination)) {
+      parts.push('Start the documented trial')
+    } else if (/\bform\b/i.test(destination)) {
+      parts.push('Submit the documented form')
+    }
+    if (/\bwhatsapp\b/i.test(destination) && /\bcalendar\b/i.test(destination)) {
+      parts.push('then continue through WhatsApp or the sales calendar')
+    } else if (/\bwhatsapp\b/i.test(destination)) {
+      parts.push('then continue through WhatsApp')
+    } else if (/\bcalendar\b/i.test(destination)) {
+      parts.push('then choose a time in the sales calendar')
+    }
+    return parts.length > 0
+      ? `${parts.join(', ')}.`
+      : `Verified next step: ${destination.replace(/[.!?]+$/u, '')}.`
+  }
+
+  const parts: string[] = []
+  if (/demo|ديمو/iu.test(destination) && /نموذج|صفحة\s+هبوط/iu.test(destination)) {
+    parts.push('احجز Demo عبر نموذج صفحة الهبوط')
+  } else if (/تجربة/iu.test(destination)) {
+    parts.push('ابدأ التجربة الموضحة في العرض')
+  } else if (/نموذج/iu.test(destination)) {
+    parts.push('أرسل النموذج المعتمد')
+  }
+  if (/واتساب/iu.test(destination) && /تقويم/iu.test(destination)) {
+    parts.push('ثم اختر واتساب أو تقويم المبيعات للمتابعة')
+  } else if (/واتساب/iu.test(destination)) {
+    parts.push('ثم تابع عبر واتساب')
+  } else if (/تقويم/iu.test(destination)) {
+    parts.push('ثم اختر موعدًا في تقويم المبيعات')
+  }
+  return parts.length > 0
+    ? `${parts.join('، ')}.`
+    : `الخطوة التالية المعتمدة: ${destination.replace(/[.!؟]+$/u, '')}.`
+}
+
+/**
+ * The model may ignore a real funnel destination even when it is repeated in
+ * the prompt. Bind one conversion-stage draft to the exact Brand Brain route
+ * deterministically, then let the normal truth/save gates review the result.
+ */
+export function ensureContentPlanConversionHandoff<T extends ContentPlanSemanticPost>(
+  posts: T[],
+  strategy: unknown,
+  conversionDestination?: string | null,
+): T[] {
+  const destination = typeof conversionDestination === 'string'
+    ? conversionDestination.trim()
+    : ''
+  if (!destination || hasVerifiedConversionHandoff(posts, destination) || posts.length === 0) {
+    return posts
+  }
+
+  const angles = contentAngles(strategy)
+  let targetIndex = posts.length - 1
+  for (let index = posts.length - 1; index >= 0; index--) {
+    const savedDirectionIndex = Number.isInteger(posts[index].contentPlanIndex)
+      && Number(posts[index].contentPlanIndex) > 0
+      ? Number(posts[index].contentPlanIndex) - 1
+      : index
+    const angle = angles.length > 0
+      ? stringify(angles[savedDirectionIndex % angles.length])
+      : ''
+    if (/conversion|decision|purchase|bottom|تحويل|قرار|شراء|حجز|demo|trial|تجربة/iu.test(angle)) {
+      targetIndex = index
+      break
+    }
+  }
+
+  const cta = buildGroundedConversionCta(destination)
+  return posts.map((post, index) => {
+    if (index !== targetIndex) return post
+    const caption = typeof post.caption === 'string' ? post.caption.trim() : ''
+    return {
+      ...post,
+      caption: caption ? `${caption}\n\n${cta}` : cta,
+    }
+  })
 }
 
 /**
@@ -117,6 +231,17 @@ export function validateContentPlanSemanticAlignment(
       }
     }
 
+    const domainDriftEvidence = DOMAIN_MARKERS
+      .filter(marker => !marker.brand.test(explicitBrandFacts) && marker.content.test(postText))
+      .map(marker => marker.label)
+    if (domainDriftEvidence.length > 0) {
+      issues.push({
+        index: index + 1,
+        reason: 'unexpected_domain_drift',
+        evidence: domainDriftEvidence,
+      })
+    }
+
     const postTokens = tokens(postText)
     const savedDirectionIndex = Number.isInteger(post.contentPlanIndex) && Number(post.contentPlanIndex) > 0
       ? Number(post.contentPlanIndex) - 1
@@ -140,12 +265,30 @@ export function validateContentPlanSemanticAlignment(
     }
   })
 
+  const conversionDestination = typeof context.conversionDestination === 'string'
+    ? context.conversionDestination.trim()
+    : ''
+  if (conversionDestination) {
+    const destinationTokens = tokens(conversionDestination)
+    if (!hasVerifiedConversionHandoff(posts, conversionDestination)) {
+      issues.push({
+        index: 0,
+        reason: 'missing_conversion_handoff',
+        evidence: Array.from(destinationTokens).slice(0, 6),
+      })
+    }
+  }
+
   const requiredAlignedPosts = posts.length === 0 ? 0 : Math.max(1, Math.ceil(posts.length * 0.75))
-  const hasBusinessTypeDrift = issues.some(issue => issue.reason === 'unexpected_operational_saas_drift')
+  const hasBusinessTypeDrift = issues.some(issue => (
+    issue.reason === 'unexpected_operational_saas_drift'
+    || issue.reason === 'unexpected_domain_drift'
+  ))
+  const hasMissingConversionHandoff = issues.some(issue => issue.reason === 'missing_conversion_handoff')
   const enoughAlignedPosts = alignedPosts >= requiredAlignedPosts
 
   return {
-    ok: posts.length > 0 && !hasBusinessTypeDrift && enoughAlignedPosts,
+    ok: posts.length > 0 && !hasBusinessTypeDrift && !hasMissingConversionHandoff && enoughAlignedPosts,
     alignedPosts,
     requiredAlignedPosts,
     issues,

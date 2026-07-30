@@ -468,7 +468,10 @@ export async function runCampaignEngine(params: {
           strategyType: savedContract.strategyType,
           organicPostCount: savedContract.organicPostCount,
           hasLeadHandling: Boolean(brand?.leadHandling),
+          leadHandling: brand?.leadHandling || null,
           hasConversionDestination: hasUsableConversionDestination(brand?.conversionDestination, campaign.goal),
+          conversionDestination: brand?.conversionDestination || null,
+          goal: brand?.businessGoal || campaign.goal,
         },
       )
       concepts = guardStrategyProof(concepts, proofContext)

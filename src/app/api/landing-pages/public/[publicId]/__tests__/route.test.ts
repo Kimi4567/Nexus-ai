@@ -65,6 +65,26 @@ describe('public landing page read', () => {
     expect(await response.json()).toEqual({ error: 'Campaign intake is temporarily unavailable.' })
   })
 
+  it('fails closed when persisted publication JSON cannot satisfy the renderer contract', async () => {
+    mocks.page.mockResolvedValue({
+      id: 'page-1',
+      workspaceId: 'workspace-1',
+      campaignId: 'campaign-1',
+      status: 'PUBLISHED',
+      publishedSnapshot: { headline: 'Legacy incomplete snapshot' },
+      publishedHash: 'legacy-hash',
+      publishedAt: new Date('2026-07-20T10:00:00Z'),
+    })
+
+    const response = await GET(new NextRequest('http://localhost/api/landing-pages/public/public-page-1'), context)
+    expect(response.status).toBe(503)
+    expect(await response.json()).toEqual({
+      error: 'This campaign page is temporarily unavailable.',
+      code: 'LANDING_PAGE_SNAPSHOT_INVALID',
+    })
+    expect(mocks.form).not.toHaveBeenCalled()
+  })
+
   it('does not require a capture form for an external published CTA', async () => {
     mocks.page.mockResolvedValue({
       workspaceId: 'workspace-1', campaignId: 'campaign-1', status: 'PUBLISHED',

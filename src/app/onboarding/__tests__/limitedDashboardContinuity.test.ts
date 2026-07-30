@@ -18,4 +18,11 @@ describe('limited onboarding dashboard continuity', () => {
     expect(SRC).toContain('تعذّر تجهيز مساحة العمل المحدودة')
     expect(SRC).toContain('Could not prepare the limited workspace')
   })
+
+  it('does not flash first-run claims before checking an existing workspace', () => {
+    expect(SRC).toContain('const [checkingContinuity, setCheckingContinuity] = useState(true)')
+    expect(SRC).toContain('loading || (isAuthenticated && checkingContinuity)')
+    expect(SRC).toContain('router.replace(destination)')
+    expect(SRC).toContain('جارٍ التحقق من مساحة العمل وBrand Brain المحفوظين.')
+  })
 })

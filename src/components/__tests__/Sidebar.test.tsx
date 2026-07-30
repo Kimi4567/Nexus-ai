@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '@/components/Sidebar'
 
@@ -23,7 +23,7 @@ const billingState = vi.hoisted(() => ({
 }))
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/brand',
+  usePathname: () => '/dashboard',
   useRouter: () => ({ push: vi.fn() }),
 }))
 
@@ -131,21 +131,26 @@ describe('Sidebar credit presentation', () => {
     expect(screen.getByText('No credits left')).toBeTruthy()
   })
 
-  it('mirrors the marketing workflow in the primary navigation', () => {
+  it('keeps owner decisions primary and specialist workflows behind a disclosure', () => {
     render(<Sidebar collapsed={false} setCollapsed={() => {}} />)
 
     expect(screen.getByText('Today')).toBeTruthy()
-    expect(screen.getByText('Approvals')).toBeTruthy()
+    expect(screen.getByText('My decisions')).toBeTruthy()
+    expect(screen.getByText('Results')).toBeTruthy()
+    expect(screen.getByText('Settings & connections')).toBeTruthy()
+    expect(screen.queryByText('Brand Brain')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Advanced tools' }))
+
     expect(screen.getByText('Brand Brain')).toBeTruthy()
     expect(screen.getByText('Strategy & campaigns')).toBeTruthy()
     expect(screen.getByText('Content production')).toBeTruthy()
     expect(screen.getByText('Execution')).toBeTruthy()
-    expect(screen.getByText('Results & learning')).toBeTruthy()
-    expect(screen.getByText('Connections')).toBeTruthy()
     expect(screen.getByText('Operations center')).toBeTruthy()
     expect(document.querySelector('a[href="/billing"]')).toBeTruthy()
     expect(document.querySelector('a[href="/calendar?tab=queue"]')).toBeTruthy()
     expect(document.querySelector('a[href="/operations"]')).toBeTruthy()
+    expect(document.querySelectorAll('a[href="/analytics"]')).toHaveLength(1)
 
     expect(screen.queryByText('Campaigns')).toBeNull()
     expect(screen.queryByText('Publish')).toBeNull()

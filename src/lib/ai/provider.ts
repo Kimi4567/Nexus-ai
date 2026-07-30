@@ -14,13 +14,17 @@ export class AiProviderUnavailableError extends Error {
 }
 
 export function isAiProviderConfigured(): boolean {
-  const apiKey = process.env.OPENAI_API_KEY
-  return typeof apiKey === 'string' && apiKey.trim().length > 0
+  const credential = process.env.AI_GATEWAY_API_KEY
+    || process.env.VERCEL_OIDC_TOKEN
+    || process.env.OPENAI_API_KEY
+  return typeof credential === 'string' && credential.trim().length > 0
 }
 
 export function isImageProviderConfigured(): boolean {
   const falKey = process.env.FAL_KEY
-  return (typeof falKey === 'string' && falKey.trim().length > 0) || isAiProviderConfigured()
+  const openAIKey = process.env.OPENAI_API_KEY
+  return (typeof falKey === 'string' && falKey.trim().length > 0)
+    || (typeof openAIKey === 'string' && openAIKey.trim().length > 0)
 }
 
 export function getVideoProviderApiKey(): string | null {

@@ -6,6 +6,8 @@ import { getLeadCrmDatabaseReadiness } from '@/lib/leadCrmReadiness'
 import { getLifecycleDatabaseReadiness } from '@/lib/lifecycleReadiness'
 import { getLandingPageDatabaseReadiness } from '@/lib/landingPageReadiness'
 import { getLandingExperimentDatabaseReadiness } from '@/lib/landingPageExperimentReadiness'
+import { checkAiProviderHealth } from '@/lib/ai/providerHealth'
+import { getAutomationJobDatabaseReadiness } from '@/lib/automationJobReadiness'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,12 +33,22 @@ export async function GET(req: NextRequest) {
   const lifecycleRequested = config.lifecycleMessaging?.requested === true
   const landingPagesRequested = config.landingPages?.requested === true
   const landingExperimentsRequested = config.landingPageExperiments?.requested === true
-  const [database, leadCrmDatabase, lifecycleDatabase, landingPagesDatabase, landingExperimentsDatabase] = await Promise.all([
+  const [
+    database,
+    leadCrmDatabase,
+    lifecycleDatabase,
+    landingPagesDatabase,
+    landingExperimentsDatabase,
+    aiProvider,
+    automationJobsDatabase,
+  ] = await Promise.all([
     getBillingDatabaseReadiness(),
     leadCrmRequested ? getLeadCrmDatabaseReadiness() : Promise.resolve(null),
     lifecycleRequested ? getLifecycleDatabaseReadiness() : Promise.resolve(null),
     landingPagesRequested ? getLandingPageDatabaseReadiness() : Promise.resolve(null),
     landingExperimentsRequested ? getLandingExperimentDatabaseReadiness() : Promise.resolve(null),
+    checkAiProviderHealth(),
+    getAutomationJobDatabaseReadiness(),
   ])
   const billingSchemaRequired = config.billing.requested || config.wallet.requested
   const databaseReady = database.reachable && (!billingSchemaRequired || database.ready)
@@ -44,12 +56,21 @@ export async function GET(req: NextRequest) {
   const lifecycleReady = !lifecycleRequested || lifecycleDatabase?.ready === true
   const landingPagesReady = !landingPagesRequested || landingPagesDatabase?.ready === true
   const landingExperimentsReady = !landingExperimentsRequested || landingExperimentsDatabase?.ready === true
-  const ready = config.ready && databaseReady && leadCrmReady && lifecycleReady && landingPagesReady && landingExperimentsReady
+  const ready = config.ready
+    && databaseReady
+    && leadCrmReady
+    && lifecycleReady
+    && landingPagesReady
+    && landingExperimentsReady
+    && aiProvider.ready
+    && automationJobsDatabase.ready
   return NextResponse.json({
     ok: ready,
     service: 'nexus-ai',
     timestamp: now,
     config,
+    aiProvider,
+    automationJobsDatabase,
     database: {
       reachable: database.reachable,
       billingSchemaRequired,

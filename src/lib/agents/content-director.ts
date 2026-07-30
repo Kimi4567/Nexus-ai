@@ -19,10 +19,11 @@ import { StrategyOutput } from './strategist'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { checkAndLog } from '@/lib/outputGuardrails'
 import { BANNED_PHRASES, SPECIFICITY_RULES, CONTENT_QUALITY_RULES } from '@/lib/ai/promptRules'
+import { fetchAiProvider } from '@/lib/ai/providerFetch'
 import { getPlanContext, getPlanLimits } from './planContext'
 
 async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 3000): Promise<any> {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -38,8 +39,10 @@ async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 
       max_tokens: maxTokens,
       response_format: { type: 'json_object' },
     }),
+  }, {
+    providerName: 'OpenAI content director',
+    timeoutMs: 75_000,
   })
-  if (!response.ok) throw new Error(`OpenAI error: ${response.status}`)
   const data = await response.json()
   const content = data.choices?.[0]?.message?.content?.trim()
   if (!content) throw new Error('OpenAI returned no content direction')

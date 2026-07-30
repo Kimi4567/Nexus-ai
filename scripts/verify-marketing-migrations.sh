@@ -36,6 +36,8 @@ migrations=(
   "supabase/migrations/20260720161301_landing_page_seo_foundation.sql"
   "supabase/migrations/20260720181911_enforce_marketing_workspace_coherence.sql"
   "supabase/migrations/20260721122156_first_party_conversion_measurement.sql"
+  "supabase/migrations/20260729074931_durable_automation_jobs.sql"
+  "supabase/migrations/20260729075040_index_automation_job_campaign_workspace_fk.sql"
 )
 
 psql "${marketing_test_url}" -v ON_ERROR_STOP=1 -f "${script_root}/scripts/sql/marketing-foundation-baseline.sql"

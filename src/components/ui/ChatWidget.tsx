@@ -335,7 +335,7 @@ export default memo(function ChatWidget() {
           ? (isAr ? 'إغلاق مساعد NEXUS' : 'Close NEXUS assistant')
           : (isAr ? 'فتح مساعد NEXUS' : 'Open NEXUS assistant')}
         aria-expanded={open}
-        className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 z-[100] flex h-12 w-12 items-center justify-center rounded-full shadow-2xl chat-btn sm:bottom-6 sm:right-6 sm:h-[52px] sm:w-[52px]"
+        className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] end-4 z-[100] flex h-12 w-12 items-center justify-center rounded-full shadow-2xl chat-btn sm:bottom-6 sm:end-auto sm:right-6 sm:h-[52px] sm:w-[52px]"
         style={{
           background: "linear-gradient(135deg, #6366F1 0%, #5E5CE6 100%)",
           boxShadow: "0 8px 32px rgba(94,92,230,0.35)",
@@ -356,7 +356,7 @@ export default memo(function ChatWidget() {
       {/* ── Chat Panel ── */}
       {open && (
         <div
-          className="fixed bottom-24 right-6 z-[100] w-[360px] max-w-[92vw] flex flex-col overflow-hidden chat-panel"
+          className="fixed bottom-24 end-6 z-[100] flex w-[360px] max-w-[92vw] flex-col overflow-hidden chat-panel sm:end-auto sm:right-6"
           style={{
             height: "520px",
             maxHeight: "calc(100vh - 120px)",

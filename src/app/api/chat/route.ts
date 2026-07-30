@@ -23,6 +23,7 @@ import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { STRATEGY_PRICING_DISPLAY_TRUTH } from '@/lib/strategy/strategyPricingDisplayTruth'
 import { readOpenAIChatUsage, summarizeOpenAITextUsage, type OpenAITextUsage } from '@/lib/ai/providerEconomics'
+import { fetchAiProvider } from '@/lib/ai/providerFetch'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -296,7 +297,7 @@ export async function POST(req: NextRequest) {
     // ── Streaming OpenAI call ────────────────────────────────────
     let openaiRes: Response
     try {
-      openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      openaiRes = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

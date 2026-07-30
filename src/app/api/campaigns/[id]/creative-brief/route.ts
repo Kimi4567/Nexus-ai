@@ -126,6 +126,7 @@ export async function POST(req: NextRequest, props: Params) {
       campaignGoal: campaign.goal ?? undefined,
       audience: campaign.audience ?? undefined,
       tone: campaign.tone ?? undefined,
+      platforms: Array.isArray(campaign.platforms) ? campaign.platforms.map(String) : [],
       language: (body.language as string | undefined)
         || (aiOutput.language as string | undefined)
         || 'ar',
@@ -147,6 +148,9 @@ export async function POST(req: NextRequest, props: Params) {
         desires: Array.isArray(brand.audienceDesires)
           ? brand.audienceDesires.slice(0, 3).join('; ')
           : undefined,
+        verifiedProof: Array.isArray(brand.verifiedProof)
+          ? brand.verifiedProof.map(String).filter(Boolean)
+          : [],
       } : undefined,
       strategy: {
         positioning: strategy.positioning ?? undefined,

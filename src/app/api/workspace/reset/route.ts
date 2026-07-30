@@ -28,6 +28,11 @@ import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { WORKSPACE_RESET_CONFIRMATION } from '@/lib/workspaceReset'
 import { getSupabaseAdmin } from '@/lib/supabaseAuth'
+import {
+  cleanupCloudinaryAssets,
+  cloudinaryReferenceFromUrl,
+  type CloudinaryAssetReference,
+} from '@/lib/externalAssetCleanup.server'
 
 const db = prisma as any
 
@@ -105,6 +110,18 @@ export async function POST(req: NextRequest) {
       count: () => Promise<number>
     }[] => [
       { name: 'marketingLearningEvent', del: () => client.marketingLearningEvent.deleteMany({ where }), count: () => client.marketingLearningEvent.count({ where }) },
+      { name: 'conversionEvent',        del: () => client.conversionEvent.deleteMany({ where }),        count: () => client.conversionEvent.count({ where }) },
+      { name: 'landingPageExperiment',  del: () => client.landingPageExperiment.deleteMany({ where }),  count: () => client.landingPageExperiment.count({ where }) },
+      { name: 'landingPage',            del: () => client.landingPage.deleteMany({ where }),            count: () => client.landingPage.count({ where }) },
+      { name: 'lifecycleMessage',        del: () => client.lifecycleMessage.deleteMany({ where }),        count: () => client.lifecycleMessage.count({ where }) },
+      { name: 'contactSuppression',      del: () => client.contactSuppression.deleteMany({ where }),      count: () => client.contactSuppression.count({ where }) },
+      { name: 'leadCaptureForm',         del: () => client.leadCaptureForm.deleteMany({ where }),         count: () => client.leadCaptureForm.count({ where }) },
+      { name: 'lead',                    del: () => client.lead.deleteMany({ where }),                    count: () => client.lead.count({ where }) },
+      { name: 'competitorSignal',        del: () => client.competitorSignal.deleteMany({ where }),        count: () => client.competitorSignal.count({ where }) },
+      { name: 'competitorSnapshot',      del: () => client.competitorSnapshot.deleteMany({ where }),      count: () => client.competitorSnapshot.count({ where }) },
+      { name: 'competitorSource',        del: () => client.competitorSource.deleteMany({ where }),        count: () => client.competitorSource.count({ where }) },
+      { name: 'competitor',              del: () => client.competitor.deleteMany({ where }),              count: () => client.competitor.count({ where }) },
+      { name: 'competitorResearchRun',   del: () => client.competitorResearchRun.deleteMany({ where }),   count: () => client.competitorResearchRun.count({ where }) },
       { name: 'brandEvidenceDocument', del: () => client.brandEvidenceDocument.deleteMany({ where }), count: () => client.brandEvidenceDocument.count({ where }) },
       { name: 'brainLearning',          del: () => client.brainLearning.deleteMany({ where }),          count: () => client.brainLearning.count({ where }) },
       { name: 'brainScoreSnapshot',     del: () => client.brainScoreSnapshot.deleteMany({ where }),     count: () => client.brainScoreSnapshot.count({ where }) },
@@ -112,12 +129,14 @@ export async function POST(req: NextRequest) {
       { name: 'agentReport',            del: () => client.agentReport.deleteMany({ where }),            count: () => client.agentReport.count({ where }) },
       { name: 'agentSuggestion',        del: () => client.agentSuggestion.deleteMany({ where }),        count: () => client.agentSuggestion.count({ where }) },
       { name: 'agentRun',               del: () => client.agentRun.deleteMany({ where }),               count: () => client.agentRun.count({ where }) },
+      { name: 'automationJob',          del: () => client.automationJob.deleteMany({ where }),          count: () => client.automationJob.count({ where }) },
       { name: 'generatedVisual',        del: () => client.generatedVisual.deleteMany({ where }),        count: () => client.generatedVisual.count({ where }) },
       { name: 'socialPost',             del: () => client.socialPost.deleteMany({ where }),             count: () => client.socialPost.count({ where }) },
       { name: 'export',                 del: () => client.export.deleteMany({ where }),                 count: () => client.export.count({ where }) },
       { name: 'paidCampaignPack',       del: () => client.paidCampaignPack.deleteMany({ where }),       count: () => client.paidCampaignPack.count({ where }) },
       { name: 'adCampaign',             del: () => client.adCampaign.deleteMany({ where }),             count: () => client.adCampaign.count({ where }) },
       { name: 'uploadSession',          del: () => client.uploadSession.deleteMany({ where }),          count: () => client.uploadSession.count({ where }) },
+      { name: 'uploadAudit',            del: () => client.uploadAudit.deleteMany({ where }),            count: () => client.uploadAudit.count({ where }) },
       { name: 'media',                  del: () => client.media.deleteMany({ where }),                  count: () => client.media.count({ where }) },
       { name: 'campaign',               del: () => client.campaign.deleteMany({ where }),               count: () => client.campaign.count({ where }) },
     ]
@@ -153,10 +172,44 @@ export async function POST(req: NextRequest) {
     // the route waits across many round trips; Prisma batch transactions retain
     // all-or-nothing behavior without pinning a callback connection. The reset is
     // idempotent, so a repeated request is safe and does not need a session lock.
-    const evidenceStorageObjects = await prisma.brandEvidenceDocument.findMany({
-      where,
-      select: { storageBucket: true, storagePath: true },
-    })
+    const [
+      evidenceStorageObjects,
+      mediaStorageObjects,
+      generatedVisualStorageObjects,
+      brandStorageObject,
+    ] = await Promise.all([
+      prisma.brandEvidenceDocument.findMany({
+        where,
+        select: { storageBucket: true, storagePath: true },
+      }),
+      prisma.media.findMany({
+        where,
+        select: { cloudinaryId: true, type: true, url: true },
+      }),
+      prisma.generatedVisual.findMany({
+        where,
+        select: { imageUrl: true, thumbnailUrl: true },
+      }),
+      prisma.brandProfile.findUnique({
+        where: { workspaceId: wid },
+        select: { logoUrl: true },
+      }),
+    ])
+    const cloudinaryAssets: Array<CloudinaryAssetReference | null> = [
+      ...mediaStorageObjects.flatMap(item => [
+        item.cloudinaryId
+          ? {
+              publicId: item.cloudinaryId,
+              resourceType: item.type === 'VIDEO' ? 'video' as const : 'image' as const,
+            }
+          : cloudinaryReferenceFromUrl(item.url),
+      ]),
+      ...generatedVisualStorageObjects.flatMap(item => [
+        cloudinaryReferenceFromUrl(item.imageUrl),
+        cloudinaryReferenceFromUrl(item.thumbnailUrl),
+      ]),
+      cloudinaryReferenceFromUrl(brandStorageObject?.logoUrl),
+    ]
     const resetModels = makeResetModels(prisma as any)
     const deleteOperations = resetModels.map(model => model.del())
     const brandResetOperation = (prisma.brandProfile as any).updateMany({
@@ -227,6 +280,7 @@ export async function POST(req: NextRequest) {
         return { bucket, removed: 0, pending: true }
       }
     }))
+    const externalAssetCleanup = await cleanupCloudinaryAssets(cloudinaryAssets)
 
     return NextResponse.json({
       ok: true,
@@ -240,6 +294,9 @@ export async function POST(req: NextRequest) {
       connectionsPreserved: true,
       resetVerified: outcome.resetVerified,
       evidenceStorageCleanup: storageCleanup,
+      externalAssetCleanup,
+      externalCleanupComplete: externalAssetCleanup.pending === 0
+        && storageCleanup.every(item => !item.pending),
       verification: {
         remaining: outcome.remaining,
         dirtyBrandFields: outcome.dirtyBrandFields,

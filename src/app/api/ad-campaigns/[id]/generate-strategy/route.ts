@@ -29,6 +29,7 @@ import {
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
+import { fetchAiProvider } from '@/lib/ai/providerFetch'
 import { buildBrandExecutionContext } from '@/lib/brandExecutionContext'
 import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/ai/provider'
 import { extractGoogleSearchTargeting } from '@/lib/adPlatforms/googleAdsApi'
@@ -51,7 +52,7 @@ import { readOpenAIChatUsage, summarizeOpenAITextUsage, type ProviderUsageSummar
 const db = prisma as any
 
 async function callGPT(system: string, user: string): Promise<{ content: string; usage: ProviderUsageSummary }> {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

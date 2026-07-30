@@ -375,7 +375,7 @@ export default function LearningPage() {
     ]
   }, [copy, overview?.pilot])
 
-  if (authLoading) {
+  if (authLoading || (loading && !overview)) {
     return <WorkspaceRouteLoading labelAr="جارٍ تجهيز مركز التعلّم" labelEn="Preparing learning center" />
   }
   if (!isAuthenticated) return null

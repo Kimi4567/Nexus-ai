@@ -21,6 +21,11 @@ import { getAiProviderUnavailablePayload, isAiProviderConfigured } from '@/lib/a
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { readOpenAIChatUsage, summarizeOpenAITextUsage } from '@/lib/ai/providerEconomics'
+import {
+  AiProviderCircuitOpenError,
+  AiProviderRequestError,
+  fetchAiProvider,
+} from '@/lib/ai/providerFetch'
 
 /* ═══════════════════════════════════════════════════════════════
    POST /api/brand/suggest
@@ -278,7 +283,7 @@ Rules:
     chargedCredit = credit
 
     if (textFieldPrompts[field]) {
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      const res = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
         body: JSON.stringify({
@@ -337,7 +342,7 @@ Rules:
       }, { headers: { 'Cache-Control': 'no-store' } })
     }
 
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
       body: JSON.stringify({
@@ -427,14 +432,21 @@ Rules:
     }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     console.error('POST /api/brand/suggest error:', error)
+    const providerFailure = error instanceof AiProviderRequestError
+      || error instanceof AiProviderCircuitOpenError
     if (chargedUserId && chargedCredit) {
       await refundCreditDeduction({
         userId: chargedUserId,
         action: 'AI_FIELD_SUGGESTION',
         deduction: chargedCredit,
-        reason: 'Brand suggestion failed',
+        reason: providerFailure ? 'NEXUS AI service error' : 'Brand suggestion failed',
       })
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return providerFailure
+      ? NextResponse.json(
+          { error: 'NEXUS AI could not create a suggestion. Credits were restored.' },
+          { status: 502 },
+        )
+      : NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

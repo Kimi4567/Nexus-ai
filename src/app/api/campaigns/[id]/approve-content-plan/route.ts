@@ -31,6 +31,7 @@ import {
   buildStrategyApprovalSnapshotPayload,
   hashCampaignSnapshotPayload,
 } from '@/lib/campaignSnapshots'
+import { CAMPAIGN_APPROVAL_PACKAGE_JOB_KIND } from '@/lib/automationJobs/types'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -264,6 +265,24 @@ export async function POST(req: NextRequest, props: Params) {
 
       const history = plan.history.filter((entry) => approvedIds.includes(entry.socialPostId))
       if (history.length > 0) await tx.postStatusHistory.createMany({ data: history })
+      await tx.automationJob.updateMany({
+        where: {
+          workspaceId: campaign.workspaceId,
+          campaignId: campaign.id,
+          kind: CAMPAIGN_APPROVAL_PACKAGE_JOB_KIND,
+          status: 'WAITING_FOR_APPROVAL',
+        },
+        data: {
+          status: 'COMPLETED',
+          progress: 100,
+          currentStep: 'approved',
+          completedAt: new Date(),
+          leaseToken: null,
+          leaseExpiresAt: null,
+          errorCode: null,
+          lastError: null,
+        },
+      })
       return { approvedIds, snapshot, history }
     })
     const approved = approvalResult.approvedIds.length

@@ -29,14 +29,16 @@ describe('new-user journey clarity regressions', () => {
     expect(dashboard).toContain('setLastUpdated(new Date())')
   })
 
-  it('shows a risk summary before bulk copy approval and keeps one canonical creative action', () => {
+  it('shows one bounded package decision with quality, schedule, and execution limits', () => {
     const contentHub = readSource('src/app/campaigns/[id]/content-hub/page.tsx')
     const campaign = readSource('src/app/campaigns/[id]/page.tsx')
 
     expect(contentHub).toContain('approvalReviewSummary')
-    expect(contentHub).toContain('Pre-approval review summary')
+    expect(contentHub).toContain('One package decision')
     expect(contentHub).toContain('Claim risks')
     expect(contentHub).toContain('Destination/CTA risks')
+    expect(contentHub).toContain('reviewedPackageScheduleDates')
+    expect(contentHub).toContain('Cost: 0 credits. No external publishing, Autopilot activation, or budget spend.')
     expect(campaign).toContain('this step has one canonical action')
   })
 })

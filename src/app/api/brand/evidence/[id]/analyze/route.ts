@@ -21,6 +21,7 @@ import { getSupabaseAdmin } from '@/lib/supabaseAuth'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { readOpenAIChatUsage, summarizeOpenAITextUsage, type ProviderUsageSummary } from '@/lib/ai/providerEconomics'
+import { fetchAiProvider } from '@/lib/ai/providerFetch'
 
 export const runtime = 'nodejs'
 
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
     chargedUserId = user.id
     chargedCredit = credit
 
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    const aiResponse = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

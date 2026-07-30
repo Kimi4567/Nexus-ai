@@ -437,6 +437,10 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     }))
     await flushScheduledGeneration()
 
+    expect(mockReviewGeneratedMediaQuality).toHaveBeenCalledWith(expect.objectContaining({
+      creativeDirection: expect.stringContaining(`ORIGINAL REVIEWED DIRECTION: ${post.imagePrompt}`),
+    }))
+
     expect(res.status).toBe(202)
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1)
     expect(mockPrisma.socialPost.update).toHaveBeenCalledWith({

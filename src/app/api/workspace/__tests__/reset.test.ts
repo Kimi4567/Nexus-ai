@@ -16,9 +16,12 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 
 const { mockAuth, prismaMock, RESET_MODELS, FORBIDDEN_MODELS } = vi.hoisted(() => {
   const RESET_MODELS = [
-    'marketingLearningEvent', 'brandEvidenceDocument', 'brainLearning', 'brainScoreSnapshot', 'campaignMemory',
-    'agentReport', 'agentSuggestion', 'agentRun', 'generatedVisual', 'socialPost',
-    'export', 'paidCampaignPack', 'adCampaign', 'uploadSession', 'media', 'campaign',
+    'marketingLearningEvent', 'conversionEvent', 'landingPageExperiment', 'landingPage',
+    'lifecycleMessage', 'contactSuppression', 'leadCaptureForm', 'lead',
+    'competitorSignal', 'competitorSnapshot', 'competitorSource', 'competitor',
+    'competitorResearchRun', 'brandEvidenceDocument', 'brainLearning', 'brainScoreSnapshot', 'campaignMemory',
+    'agentReport', 'agentSuggestion', 'agentRun', 'automationJob', 'generatedVisual', 'socialPost',
+    'export', 'paidCampaignPack', 'adCampaign', 'uploadSession', 'uploadAudit', 'media', 'campaign',
   ]
   // These must NEVER be deleted by the reset (connections / access / account).
   const FORBIDDEN_MODELS = ['integration', 'adAccount', 'project', 'workspaceMember']
@@ -36,6 +39,8 @@ const { mockAuth, prismaMock, RESET_MODELS, FORBIDDEN_MODELS } = vi.hoisted(() =
     },
   } as Record<string, any>
   prismaMock.brandEvidenceDocument.findMany = vi.fn().mockResolvedValue([])
+  prismaMock.media.findMany = vi.fn().mockResolvedValue([])
+  prismaMock.generatedVisual.findMany = vi.fn().mockResolvedValue([])
   prismaMock.$transaction = vi.fn(async (operations: Array<Promise<unknown>>) => Promise.all(operations))
   return {
     RESET_MODELS,
@@ -47,6 +52,10 @@ const { mockAuth, prismaMock, RESET_MODELS, FORBIDDEN_MODELS } = vi.hoisted(() =
 
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 vi.mock('@/lib/apiAuth', () => ({ getAuthUser: mockAuth }))
+vi.mock('@/lib/externalAssetCleanup.server', () => ({
+  cleanupCloudinaryAssets: vi.fn().mockResolvedValue({ attempted: 0, removed: 0, pending: 0 }),
+  cloudinaryReferenceFromUrl: vi.fn().mockReturnValue(null),
+}))
 
 import { POST } from '../reset/route'
 
@@ -112,6 +121,7 @@ describe('POST /api/workspace/reset (PR-1G)', () => {
     expect(data.creditsUnchanged).toBe(true)
     expect(data.preserved).toEqual(expect.arrayContaining(['Integration', 'AdAccount', 'CreditTransaction']))
     expect(data.resetVerified).toBe(true)
+    expect(data.externalCleanupComplete).toBe(true)
     expect(data.next).toBe('/onboarding')
     expect(data.verification.remaining).toEqual(
       Object.fromEntries(RESET_MODELS.map(model => [model, 0])),

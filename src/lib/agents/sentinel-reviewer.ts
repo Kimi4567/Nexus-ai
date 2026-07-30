@@ -19,6 +19,7 @@ import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { checkAndLog } from '@/lib/outputGuardrails'
 import { detectUnsupportedClaims, buildClaimFixes, buildClaimWarnings } from '@/lib/ai/claimGuard'
 import { readOpenAIChatUsage, summarizeOpenAITextUsage, type ProviderUsageSummary } from '@/lib/ai/providerEconomics'
+import { fetchAiProvider } from '@/lib/ai/providerFetch'
 
 // ─── Input ────────────────────────────────────────────────────────────────────
 
@@ -288,7 +289,7 @@ async function callOpenAI(
   userPrompt: string,
   maxTokens = 2000
 ): Promise<{ result: RawSentinelAssessment; providerUsage: ProviderUsageSummary }> {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetchAiProvider('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -304,8 +305,10 @@ async function callOpenAI(
       max_tokens: maxTokens,
       temperature: 0.3, // low temp for consistent, analytical output
     }),
+  }, {
+    providerName: 'OpenAI campaign reviewer',
+    timeoutMs: 60_000,
   })
-  if (!response.ok) throw new Error(`OpenAI error: ${response.status}`)
   const data = await response.json()
   const raw = data.choices?.[0]?.message?.content?.trim()
   if (!raw) throw new Error('OpenAI returned no Sentinel review')

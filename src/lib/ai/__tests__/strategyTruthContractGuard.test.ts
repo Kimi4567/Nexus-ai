@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { guardStrategyKpis } from '../strategyKpiGuard'
 import { guardStrategyTruthContract } from '../strategyTruthContractGuard'
 
 describe('guardStrategyTruthContract', () => {
@@ -40,5 +41,35 @@ describe('guardStrategyTruthContract', () => {
     expect(weeklyText).not.toMatch(/ثقة في جودة المنتج|تجربة شراء مميزة/)
     expect(guarded.weeklyExecutionPlan.flatMap((week: any) => week.deliverables)).toHaveLength(4)
     for (const title of titles) expect(weeklyText).toContain(title)
+  })
+
+  it('restores the exact reviewed business goal after scrubbing invented KPI figures', () => {
+    const reviewedGoal = 'حجز 30 تجربة Demo مؤهلة خلال 90 يومًا وتحويل 20% منها إلى اشتراك مدفوع'
+    const kpiGuarded = guardStrategyKpis({
+      businessObjective: {
+        primary: 'Increase qualified demo bookings',
+        marketing: 'Increase conversions by 80%',
+        successIn30Days: 'Increase leads by 60%',
+      },
+      kpis: [{
+        metric: 'Demo bookings',
+        target: 'Increase by 75%',
+        timeframe: '30 days',
+      }],
+    }, [], { language: 'ar' })
+
+    const guarded = guardStrategyTruthContract(kpiGuarded, {
+      verifiedProof: [],
+      commercialClaimText: [],
+      allowedClaimText: [],
+    }, {
+      language: 'ar',
+      strategyType: 'organic',
+      goal: reviewedGoal,
+    })
+
+    expect(guarded.businessObjective.primary).toBe(reviewedGoal)
+    expect(JSON.stringify(guarded.kpis)).not.toMatch(/75\s*%/)
+    expect(guarded.businessObjective.successIn30Days).not.toMatch(/60\s*%/)
   })
 })

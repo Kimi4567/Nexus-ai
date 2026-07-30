@@ -51,6 +51,79 @@ export interface PublicLandingPageSnapshot {
   }
 }
 
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === 'string'
+}
+
+function isSafePublishedCtaHref(value: unknown): value is string {
+  if (typeof value !== 'string' || !value.trim()) return false
+  try {
+    const target = new URL(value, 'https://www.nexus-grow.com')
+    if (value.startsWith('/')) return target.origin === 'https://www.nexus-grow.com'
+    return target.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Published snapshots are persisted JSON and can outlive the code that wrote
+ * them. Validate the runtime boundary before metadata or Client Components read
+ * typed fields so legacy/corrupt rows fail closed instead of crashing a public
+ * campaign page.
+ */
+export function isPublicLandingPageSnapshot(
+  value: unknown,
+  expectedPublicId?: string,
+): value is PublicLandingPageSnapshot {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const snapshot = value as Record<string, unknown>
+  const primaryCta = snapshot.primaryCta
+  const theme = snapshot.theme
+  const seo = snapshot.seo
+
+  if (
+    snapshot.schemaVersion !== 1
+    || typeof snapshot.publicId !== 'string'
+    || !snapshot.publicId.trim()
+    || (expectedPublicId !== undefined && snapshot.publicId !== expectedPublicId)
+    || typeof snapshot.locale !== 'string'
+    || !LANDING_PAGE_LOCALES.includes(snapshot.locale as LandingPageLocale)
+    || typeof snapshot.headline !== 'string'
+    || !snapshot.headline.trim()
+    || !isNullableString(snapshot.subheadline)
+    || !isNullableString(snapshot.body)
+    || !isNullableString(snapshot.proof)
+    || !Array.isArray(snapshot.benefits)
+    || !snapshot.benefits.every(benefit => typeof benefit === 'string')
+    || !primaryCta
+    || typeof primaryCta !== 'object'
+    || Array.isArray(primaryCta)
+    || !theme
+    || typeof theme !== 'object'
+    || Array.isArray(theme)
+  ) return false
+
+  const cta = primaryCta as Record<string, unknown>
+  const typedTheme = theme as Record<string, unknown>
+  if (
+    typeof cta.label !== 'string'
+    || !cta.label.trim()
+    || !isSafePublishedCtaHref(cta.href)
+    || !['LEAD_FORM', 'EXTERNAL'].includes(String(cta.kind))
+    || !isNullableString(cta.captureFormPublicId)
+    || (cta.kind === 'LEAD_FORM' && !cta.captureFormPublicId?.trim())
+    || !LANDING_PAGE_THEMES.includes(typedTheme.variant as LandingPageTheme)
+  ) return false
+
+  if (seo === undefined) return true
+  if (!seo || typeof seo !== 'object' || Array.isArray(seo)) return false
+  const typedSeo = seo as Record<string, unknown>
+  return isNullableString(typedSeo.title)
+    && isNullableString(typedSeo.description)
+    && typeof typedSeo.indexable === 'boolean'
+}
+
 type ParseResult =
   | { ok: true; value: LandingPageDraft }
   | { ok: false; error: string }

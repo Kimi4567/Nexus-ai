@@ -544,6 +544,55 @@ function guardOutcomeClaims(text: string, context: ContentDraftTruthContext): st
       .replace(/\bworkplace performance\b/gi, 'office coffee planning')
       .replace(/يحسن الأداء/g, 'يساعد على تخطيط استراحات القهوة')
       .replace(/أداء الفريق/g, 'تخطيط استراحات القهوة للفريق')
+      // Product drafts must not turn an intended business outcome into achieved
+      // product proof. These exact cash-flow phrases appeared in a production
+      // audit even though Brand Brain contained no measured collection result.
+      // Preserve the useful product mechanism (visibility/review) while removing
+      // the unverified reduction or improvement claim.
+      .replace(
+        /(?:يمكن\s+أن\s+)?(?:يقلل|يخفض)\s+من\s+أيام\s+التحصيل(?:\s+دون\s+الحاجة\s+إلى\s+زيادة\s+الفريق)?/giu,
+        'يساعد على متابعة أيام التحصيل بوضوح',
+      )
+      .replace(
+        /تقليل\s+أيام\s+التحصيل(?:\s+دون\s+زيادة\s+الفريق)?/giu,
+        'متابعة أيام التحصيل بوضوح',
+      )
+      .replace(
+        /(?:تحسين|تعزيز)\s+(?:تدفقك|التدفق)\s+النقدي/giu,
+        'مراجعة تدفقك النقدي بوضوح',
+      )
+      .replace(
+        /(?:يوفر|يقدم)\s+لك\s+تنبؤات?\s+موثوقة(?:\s+أسبوعي(?:ة|ًا))?/giu,
+        'يعرض توقعات التدفق النقدي لمراجعتها أسبوعيًا',
+      )
+      .replace(
+        /(?:توقعات|تنبؤات)\s+(?:أسبوعية\s+)?(?:موثوقة|دقيقة|مضمونة)/giu,
+        'توقعات التدفق النقدي لمراجعتها أسبوعيًا',
+      )
+      .replace(
+        /(?:التنبؤ|توقع)\s+ب?التدفق\s+النقدي\s+بثقة/giu,
+        'مراجعة توقعات التدفق النقدي بوضوح',
+      )
+      .replace(
+        /تقليل\s+الضغط\s+على\s+السيولة/giu,
+        'إظهار ضغط السيولة بوضوح',
+      )
+      .replace(
+        /متابعة\s+أيام\s+التحصيل\s+بوضوح\s+دون\s+الحاجة\s+إلى\s+زيادة\s+الفريق/giu,
+        'متابعة أيام التحصيل بوضوح',
+      )
+      .replace(
+        /دون\s+الحاجة\s+إلى\s+زيادة\s+الفريق/giu,
+        'مع مراجعة احتياج الفريق الفعلي',
+      )
+      .replace(
+        /\bcan\s+(?:reduce|shorten)\s+(?:invoice\s+)?collection\s+(?:days|time)(?:\s+without\s+(?:adding|growing)\s+(?:the\s+)?team)?\b/gi,
+        'can help teams review invoice collection timing more clearly',
+      )
+      .replace(
+        /\bimprov(?:e|ing)\s+(?:your\s+)?cash\s+flow\b/gi,
+        'review cash flow more clearly',
+      )
   }
 
   return guarded
@@ -627,6 +676,8 @@ function guardDeliveryClaims(text: string): string {
 
 function guardDraftCopyQuality(text: string): string {
   return text
+    .replace(/(?:حل(?:اً|ًا|ا)?|الحل)\s+فعال(?:اً|ًا|ا)?/giu, 'أداة عملية')
+    .replace(/(?:الحلول|حلول)\s+ال?فعال(?:ة|ه)/giu, 'خطوات عملية')
     .replace(
       /لا\s+(?:داعي|حاجة)\s+للقلق\s+(?:بعد\s+الآن\s+)?بشأن\s+نفاد\s+القهوة(?:\s+بشكل\s+غير\s+متوقع)?[.!！]?/gi,
       'راجع الكمية المناسبة لاحتياجك الشهري قبل الاشتراك.',
@@ -1156,7 +1207,10 @@ function guardUnverifiedFeatureAndOutcomeClaims(
 ): string {
   const facts = brandFactCorpus(context)
   let guarded = text
-  const isCoffeeContext = /coffee|roast|beans?|subscription|قهوة|تحميص|اشتراك/i.test(facts)
+  // "Subscription" is a billing model used by most SaaS products; it is not
+  // evidence that the brand sells coffee. Requiring an actual coffee/product
+  // term prevents SaaS image prompts from being rewritten into coffee copy.
+  const isCoffeeContext = /coffee|roast|beans?|قهوة|تحميص|حبوب\s+القهوة/i.test(facts)
 
   // Generic security promises are not proof. Keep them out of draft copy
   // unless the user supplied a concrete security artifact; even then, the
@@ -1229,8 +1283,8 @@ function guardUnverifiedFeatureAndOutcomeClaims(
             ? 'Review the documented coffee delivery scope and service window.'
             : 'Review the documented coffee and subscription details instead of implying a performance outcome.'
         : /[\u0600-\u06ff]/u.test(guarded)
-          ? 'ارسم خطوات المتابعة الحالية وراجع هل يجعل النظام الموحد انتقال العمل أوضح.'
-          : 'Map the current handoffs and review whether the unified workflow makes ownership clearer.',
+          ? 'راجع خطوات العمل الحالية وحدد أين تحتاج رؤية أوضح.'
+          : 'Review the current workflow and identify where clearer visibility is needed.',
     )
     guarded = guarded
       .replace(/#(?:Productivity|Efficiency)\b/gi, '#WorkflowReview')

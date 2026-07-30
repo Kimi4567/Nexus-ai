@@ -4,11 +4,14 @@ import { describe, expect, it } from 'vitest'
 
 const page = readFileSync(resolve(process.cwd(), 'src/app/page.tsx'), 'utf8')
 const i18nProvider = readFileSync(resolve(process.cwd(), 'src/lib/i18n-context.tsx'), 'utf8')
+const rootLayout = readFileSync(resolve(process.cwd(), 'src/app/layout.tsx'), 'utf8')
 
 describe('public landing-page contract', () => {
   it('defaults new visitors to English while preserving the Arabic switch', () => {
-    expect(i18nProvider).toContain("useState<Locale>('en')")
-    expect(i18nProvider).toContain("setLocaleState('en')")
+    expect(i18nProvider).toContain("initialLocale = 'en'")
+    expect(i18nProvider).toContain('useState<Locale>(initialLocale)')
+    expect(rootLayout).toContain("isSupportedLocale(savedLocale) ? savedLocale : 'en'")
+    expect(rootLayout).toContain('lang={initialLocale} dir={direction}')
     expect(page).toContain("lang === 'ar'")
     expect(page).toContain("ar ? 'English' : 'العربية'")
   })

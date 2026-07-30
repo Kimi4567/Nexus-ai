@@ -6,7 +6,7 @@ DECLARE
     'BillingWebhookEvent', 'Lead', 'LeadActivity', 'LeadTask',
     'LeadCaptureForm', 'ContactSuppression', 'LifecycleMessage',
     'LandingPage', 'LandingPageRevision', 'ConversionEvent',
-    'LandingPageExperiment'
+    'LandingPageExperiment', 'AutomationJob', 'AutomationJobStep'
   ];
   required_indexes TEXT[] := ARRAY[
     'Lead_assignedToId_idx',
@@ -29,6 +29,10 @@ DECLARE
     'ConversionEvent_page_context_idx',
     'ConversionEvent_lead_tenant_idx',
     'ConversionEvent_experiment_context_idx'
+    ,'AutomationJob_one_active_campaign_kind_key'
+    ,'AutomationJob_status_nextAttemptAt_priority_createdAt_idx'
+    ,'AutomationJob_campaignId_workspaceId_idx'
+    ,'AutomationJobStep_jobId_stepKey_attempt_key'
   ];
   missing_objects TEXT[];
   table_name TEXT;
@@ -83,6 +87,58 @@ INSERT INTO "Workspace" ("id") VALUES ('workspace-a'), ('workspace-b');
 INSERT INTO "User" ("id") VALUES ('user-a'), ('user-b');
 INSERT INTO "Campaign" ("id", "workspaceId")
 VALUES ('campaign-a', 'workspace-a'), ('campaign-b', 'workspace-b');
+
+INSERT INTO "AutomationJob" (
+  "id", "workspaceId", "campaignId", "requestedByUserId", "kind",
+  "status", "idempotencyKey", "input", "progress"
+) VALUES (
+  'automation-job-a', 'workspace-a', 'campaign-a', 'user-a', 'CAMPAIGN_ENGINE',
+  'QUEUED', 'automation-operation-a', '{}'::jsonb, 10
+);
+
+INSERT INTO "AutomationJobStep" (
+  "id", "jobId", "stepKey", "attempt", "status", "output", "completedAt"
+) VALUES (
+  'automation-step-a', 'automation-job-a', 'validate_and_reserve', 1,
+  'COMPLETED', '{"creditsReserved":true}'::jsonb, CURRENT_TIMESTAMP
+);
+
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO "AutomationJob" (
+      "id", "workspaceId", "campaignId", "requestedByUserId", "kind",
+      "status", "idempotencyKey", "input"
+    ) VALUES (
+      'automation-job-duplicate', 'workspace-a', 'campaign-a', 'user-a',
+      'CAMPAIGN_ENGINE', 'QUEUED', 'automation-operation-b', '{}'::jsonb
+    );
+    RAISE EXCEPTION 'Expected one active campaign automation job per kind';
+  EXCEPTION WHEN unique_violation THEN
+    NULL;
+  END;
+
+  BEGIN
+    INSERT INTO "AutomationJob" (
+      "id", "workspaceId", "campaignId", "requestedByUserId", "kind",
+      "status", "idempotencyKey", "input"
+    ) VALUES (
+      'automation-job-cross-tenant', 'workspace-a', 'campaign-b', 'user-a',
+      'CONTENT_PLAN', 'QUEUED', 'automation-operation-c', '{}'::jsonb
+    );
+    RAISE EXCEPTION 'Expected a cross-workspace automation job campaign to be rejected';
+  EXCEPTION WHEN foreign_key_violation THEN
+    NULL;
+  END;
+
+  BEGIN
+    UPDATE "AutomationJob" SET "progress" = 101 WHERE "id" = 'automation-job-a';
+    RAISE EXCEPTION 'Expected automation job progress above 100 to be rejected';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+END
+$$;
 
 INSERT INTO "LeadCaptureForm" (
   "id", "publicId", "workspaceId", "campaignId", "createdById", "name", "title"

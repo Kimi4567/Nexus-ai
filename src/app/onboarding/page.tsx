@@ -206,6 +206,7 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(false)
+  const [checkingContinuity, setCheckingContinuity] = useState(true)
 
   // ── Starter fields (minimum useful Brand Brain layer) ──
   const [firstIntent, setFirstIntent] = useState('')
@@ -236,13 +237,29 @@ export default function OnboardingPage() {
   useEffect(() => {
     if (!isAuthenticated) return
     const token = authHeader()
-    if (!token) return
-    fetch('/api/workspaces', { headers: { Authorization: token } })
-      .then(r => r.json())
-      .then(async data => {
-        if (!Array.isArray(data) || data.length === 0) return
-        const brandRes = await fetch('/api/brand', { headers: { Authorization: token } }).catch(() => null)
-        const brandData = brandRes?.ok ? await brandRes.json() : null
+    if (!token) {
+      setCheckingContinuity(false)
+      return
+    }
+    let cancelled = false
+
+    async function resolveContinuity() {
+      try {
+        const workspaceResponse = await fetch('/api/workspaces', {
+          headers: { Authorization: token },
+        })
+        if (!workspaceResponse.ok) throw new Error('Unable to verify workspace continuity')
+        const workspaces = await workspaceResponse.json()
+        if (!Array.isArray(workspaces) || workspaces.length === 0) {
+          if (!cancelled) setCheckingContinuity(false)
+          return
+        }
+
+        const brandResponse = await fetch('/api/brand', {
+          headers: { Authorization: token },
+        })
+        if (!brandResponse.ok) throw new Error('Unable to verify Brand Brain continuity')
+        const brandData = await brandResponse.json()
         const brandProfile = brandData?.brandProfile ?? null
         const readiness = getBrandBrainReadiness(brandProfile)
         // A reset intentionally preserves the workspace shell and connections.
@@ -254,9 +271,20 @@ export default function OnboardingPage() {
           brandProfile,
           brandReady: readiness.ready,
         })
-        if (destination) router.replace(destination)
-      })
-      .catch(() => {})
+        if (destination) {
+          router.replace(destination)
+          return
+        }
+        if (!cancelled) setCheckingContinuity(false)
+      } catch {
+        if (!cancelled) setCheckingContinuity(false)
+      }
+    }
+
+    void resolveContinuity()
+    return () => {
+      cancelled = true
+    }
   }, [isAuthenticated, authHeader, router])
 
   const togglePlatform = (value: string) => {
@@ -388,10 +416,15 @@ export default function OnboardingPage() {
   }
 
   // ── Loading / auth guards ──
-  if (loading) {
+  if (loading || (isAuthenticated && checkingContinuity)) {
     return (
       <Shell dir={dir}>
-        <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin" style={{ color: '#5E5CE6' }} /></div>
+        <div aria-busy="true" className="flex flex-col items-center justify-center py-20 text-center">
+          <Loader2 className="h-6 w-6 animate-spin" style={{ color: '#5E5CE6' }} />
+          <p className="mt-4 text-sm font-semibold text-slate-600">
+            {ar ? 'جارٍ التحقق من مساحة العمل وBrand Brain المحفوظين.' : 'Checking your saved workspace and Brand Brain.'}
+          </p>
+        </div>
       </Shell>
     )
   }

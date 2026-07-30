@@ -33,6 +33,7 @@ function mockFetch(opts: { ok?: boolean; status?: number; content?: string; fini
   return vi.fn(async () => ({
     ok,
     status,
+    headers: { get: () => '0' },
     json: async () => body,
     text: async () => text,
   })) as unknown as typeof fetch
@@ -74,7 +75,13 @@ describe('openai strategy/concepts response handling', () => {
 
   it('4b. provider/API error fails clearly (engine catch turns this into a refund)', async () => {
     vi.stubGlobal('fetch', mockFetch({ ok: false, status: 500, text: 'upstream error' }))
-    await expect(generateMarketingStrategy(campaign, null)).rejects.toThrow(/OpenAI API error: 500/i)
+    await expect(generateMarketingStrategy(campaign, null)).rejects.toMatchObject({
+      name: 'AiProviderRequestError',
+      status: 500,
+      retryable: true,
+      attempts: 3,
+      responseExcerpt: 'upstream error',
+    })
   })
 
   it('robustness: markdown-fenced JSON is still parsed', async () => {
