@@ -18,6 +18,10 @@ describe('public landing-page contract', () => {
 
   it('sells the complete existing operating system around Brand Brain', () => {
     expect(page).toContain('One Brand Brain.')
+    expect(page).toContain('A marketing department you direct.')
+    expect(page).toContain('NEXUS COMMAND ROOM')
+    expect(page).toContain('Build my Brand Brain')
+    expect(page).toContain('0 external actions')
     expect(page).toContain('Brand & competitor intelligence')
     expect(page).toContain('Strategy & campaigns')
     expect(page).toContain('Content & media production')

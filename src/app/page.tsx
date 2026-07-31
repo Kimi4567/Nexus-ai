@@ -448,6 +448,173 @@ function FAQItem({ q, a }: { q: string; a: string }) {
   )
 }
 
+function HeroCommandPreview({ ar }: { ar: boolean }) {
+  const operatingLoop = [
+    { icon: Brain, label: ar ? 'ذاكرة البراند' : 'Brand memory', state: ar ? 'مراجَعة' : 'Reviewed' },
+    { icon: Target, label: ar ? 'اتجاه الحملة' : 'Campaign direction', state: ar ? 'مسودة' : 'Draft' },
+    { icon: Wand2, label: ar ? 'أصول المحتوى' : 'Content assets', state: ar ? 'بوابة جودة' : 'Quality gate' },
+    { icon: ClipboardCheck, label: ar ? 'قرار الموافقة' : 'Approval decision', state: ar ? 'منفصل' : 'Separate' },
+  ]
+
+  const decisions = [
+    {
+      icon: MessageSquareText,
+      title: ar ? 'راجع رسالة الحملة' : 'Review campaign message',
+      body: ar ? 'هل الرسالة متسقة مع العرض والجمهور؟' : 'Does the message match the offer and audience?',
+    },
+    {
+      icon: Calendar,
+      title: ar ? 'حوّل الموعد إلى جدولة داخلية' : 'Turn timing into an internal schedule',
+      body: ar ? 'لا يصبح نشراً خارجياً بدون ربط وتصريح وموافقة.' : 'It is not external publishing without connection, permission, and consent.',
+    },
+    {
+      icon: PackageCheck,
+      title: ar ? 'صدّر حزمة التسليم' : 'Export the delivery package',
+      body: ar ? 'كل ما يحتاجه الفريق أو العميل للمراجعة النهائية.' : 'Everything the team or client needs for final review.',
+    },
+  ]
+
+  return (
+    <div className="nx-hero-command" aria-label={ar ? 'معاينة مركز قيادة NEXUS' : 'NEXUS command room preview'}>
+      <div className="nx-hero-command-toolbar">
+        <div className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
+          <span className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
+          <span className="h-2.5 w-2.5 rounded-full bg-green-400" />
+        </div>
+        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+          {ar ? 'غرفة قيادة NEXUS' : 'NEXUS COMMAND ROOM'}
+        </span>
+        <span className="nx-hero-command-safe">
+          <ShieldCheck className="h-3.5 w-3.5" />
+          {ar ? '0 تنفيذ خارجي' : '0 external actions'}
+        </span>
+      </div>
+
+      <div className="nx-hero-command-body">
+        <section className="nx-hero-brain-panel">
+          <div className="flex items-start justify-between gap-4">
+            <span className="nx-hero-command-icon">
+              <Brain className="h-5 w-5" />
+            </span>
+            <span className="nx-hero-live-dot">{ar ? 'يتعلّم بموافقتك' : 'Learns with approval'}</span>
+          </div>
+          <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-200">
+            {ar ? 'العمود الفقري' : 'The backbone'}
+          </p>
+          <h2 className="mt-2 text-[28px] font-semibold tracking-[-0.045em] text-white sm:text-[34px]">
+            Brand Brain
+          </h2>
+          <p className="mt-3 text-[13px] leading-6 text-slate-300">
+            {ar
+              ? 'هوية، جمهور، نبرة، قيود، أدلة ومنافسون تتحول إلى قرارات تسويقية قابلة للمراجعة.'
+              : 'Identity, audience, voice, constraints, proof, and competitors become reviewable marketing decisions.'}
+          </p>
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            {[ar ? 'لا تحديث صامت' : 'No silent updates', ar ? 'لا ادعاء بلا دليل' : 'No proofless claims'].map((item) => (
+              <span key={item} className="nx-hero-brain-pill">
+                <Check className="h-3 w-3" />
+                {item}
+              </span>
+            ))}
+          </div>
+        </section>
+
+        <section className="nx-hero-loop-panel">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-violet-600">
+                {ar ? 'حلقة التشغيل' : 'Operating loop'}
+              </p>
+              <h3 className="mt-1 text-[18px] font-bold tracking-[-0.03em] text-slate-950">
+                {ar ? 'من التفكير إلى التسليم' : 'From thinking to delivery'}
+              </h3>
+            </div>
+            <span className="rounded-full bg-slate-950 px-3 py-1.5 font-mono text-[9px] font-bold text-cyan-100">
+              {ar ? '4 بوابات' : '4 gates'}
+            </span>
+          </div>
+          <div className="mt-5 space-y-2.5">
+            {operatingLoop.map((item, index) => (
+              <div key={item.label} className="nx-hero-loop-row">
+                <span className="nx-hero-loop-number">0{index + 1}</span>
+                <span className="nx-hero-loop-icon">
+                  <item.icon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1 text-[13px] font-bold text-slate-800">{item.label}</span>
+                <span className="nx-hero-loop-state">{item.state}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="nx-hero-decision-panel">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+              {ar ? 'قائمة قرارات اليوم' : "Today’s decision queue"}
+            </p>
+            <LockKeyhole className="h-4 w-4 text-violet-600" />
+          </div>
+          <div className="mt-4 space-y-3">
+            {decisions.map((decision) => (
+              <div key={decision.title} className="nx-hero-decision-row">
+                <span className="nx-hero-decision-icon">
+                  <decision.icon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[12.5px] font-bold text-slate-950">{decision.title}</span>
+                  <span className="mt-0.5 block text-[10.5px] leading-4 text-slate-500">{decision.body}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </div>
+  )
+}
+
+function HeroOutcomeStrip({ ar }: { ar: boolean }) {
+  const outcomes = [
+    {
+      icon: Brain,
+      title: ar ? 'ابنِ ذاكرة البراند' : 'Build the Brand Brain',
+      body: ar ? 'ابدأ من عرضك وجمهورك ونبرتك وحدود ادعاءاتك.' : 'Start with your offer, audience, voice, and claim boundaries.',
+    },
+    {
+      icon: Route,
+      title: ar ? 'اكتشف مسار الحملة' : 'See the campaign path',
+      body: ar ? 'اتجاه ورسائل وتقويم قبل إنتاج أي أصل مكلف.' : 'Direction, messaging, and calendar before any costly asset work.',
+    },
+    {
+      icon: ClipboardCheck,
+      title: ar ? 'راجع قبل التشغيل' : 'Review before operation',
+      body: ar ? 'النص والوسيط والجدولة قرارات منفصلة قابلة للتتبع.' : 'Copy, media, and schedules remain separate traceable decisions.',
+    },
+    {
+      icon: ShieldCheck,
+      title: ar ? 'تحكم آمن' : 'Safe control',
+      body: ar ? 'لا نشر خارجي أو إنفاق بدون ربط، صلاحية، وموافقة.' : 'No external publishing or spend without connection, permission, and consent.',
+    },
+  ]
+
+  return (
+    <div className="nx-hero-outcome-strip">
+      {outcomes.map((outcome) => (
+        <article key={outcome.title} className="nx-hero-outcome-card">
+          <span className="nx-hero-outcome-icon">
+            <outcome.icon className="h-4 w-4" />
+          </span>
+          <div>
+            <h3 className="text-[13.5px] font-bold text-slate-950">{outcome.title}</h3>
+            <p className="mt-1 text-[11.5px] leading-5 text-slate-500">{outcome.body}</p>
+          </div>
+        </article>
+      ))}
+    </div>
+  )
+}
+
 export default function LandingPage() {
   const { lang, setLang } = useTranslation()
   const ar = lang === 'ar'
@@ -566,44 +733,50 @@ export default function LandingPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(HOME_JSON_LD) }} />
       <Header ar={ar} setLang={setLang} />
 
-      <section className="nx-public-hero mx-auto max-w-7xl px-4 pb-20 pt-20 text-center sm:px-6 sm:pb-28 sm:pt-28">
-        <div className="nx-ai-chip mx-auto mb-6">
-          <span className="nx-ai-core" aria-hidden="true" />
-          <span>{ar ? 'نظام تشغيل لقسم التسويق' : 'THE OPERATING SYSTEM FOR YOUR MARKETING DEPARTMENT'}</span>
+      <section className="nx-public-hero mx-auto max-w-7xl px-4 pb-14 pt-14 sm:px-6 sm:pb-20 sm:pt-20">
+        <div className="grid items-center gap-10 lg:grid-cols-[0.92fr_1.08fr] lg:gap-14">
+          <div className="nx-hero-copy-block text-center lg:text-start">
+            <div className="nx-ai-chip mx-auto mb-6 lg:mx-0">
+              <span className="nx-ai-core" aria-hidden="true" />
+              <span>{ar ? 'نظام تشغيل لقسم التسويق' : 'THE OPERATING SYSTEM FOR YOUR MARKETING DEPARTMENT'}</span>
+            </div>
+            <h1 className="nx-public-hero-title mx-auto max-w-4xl text-balance lg:mx-0">
+              {ar ? (
+                <>عقل واحد للبراند. <span className="nx-public-hero-accent">وقسم تسويق تقوده أنت.</span></>
+              ) : (
+                <>One Brand Brain. <span className="nx-public-hero-accent">A marketing department you direct.</span></>
+              )}
+            </h1>
+            <p className="nx-public-hero-copy mx-auto mt-7 max-w-2xl text-pretty lg:mx-0">
+              {ar
+                ? 'بدل تشتت الاستراتيجية والمحتوى والموافقات والمتابعة بين أدوات ومحادثات—NEXUS يجمع التشغيل كله حول Brand Brain واحد يحافظ على السياق والقرار.'
+                : 'Instead of scattering strategy, content, approvals, and follow-up across tools and chats—NEXUS puts the operating work around one Brand Brain that keeps context and decisions together.'}
+            </p>
+            <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
+              <Link href="/auth/register" className="nx-public-button-primary min-w-48">
+                {ar ? 'ابنِ Brand Brain الآن' : 'Build my Brand Brain'}
+                <ArrowRight className="h-4 w-4 nx-directional-arrow" />
+              </Link>
+              <a href="#product" className="nx-public-button-secondary min-w-48">
+                {ar ? 'افهم كيف يعمل' : 'See how it works'}
+              </a>
+            </div>
+            <p className="mx-auto mt-5 max-w-2xl text-[13px] font-semibold leading-6 text-slate-500 lg:mx-0">
+              {ar
+                ? 'يحوّل NEXUS معرفة البراند التي راجعتها إلى استراتيجية، حملات، محتوى، موافقات، تشغيل مجدول، عملاء محتملين، وتعلّم مدعوم بالأدلة—داخل نظام واحد. ولا ينشر أو ينفق أي شيء دون ربط وصلاحية وموافقة صريحة منك.'
+                : 'NEXUS turns reviewed brand knowledge into strategy, campaigns, content, approvals, scheduled operations, leads, and evidence-backed learning—inside one system. Nothing publishes or spends without a connection, valid permission, and your explicit consent.'}
+            </p>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 lg:justify-start">
+              <span className="nx-public-trust-chip"><Check className="h-3.5 w-3.5" />{ar ? `${FREE_TRIAL_CREDITS} كريدت تجريبي` : `${FREE_TRIAL_CREDITS} trial credits`}</span>
+              <span className="nx-public-trust-chip"><CircleDollarSign className="h-3.5 w-3.5" />{ar ? 'بدون بطاقة للتجربة' : 'No card for trial'}</span>
+              <span className="nx-public-trust-chip"><ShieldCheck className="h-3.5 w-3.5" />{ar ? 'تنفيذ محكوم بالموافقة' : 'Approval-gated execution'}</span>
+              <span className="nx-public-trust-chip"><BarChart3 className="h-3.5 w-3.5" />{ar ? 'تعلّم من بيانات حقيقية' : 'Learning from real data'}</span>
+            </div>
+          </div>
+
+          <HeroCommandPreview ar={ar} />
         </div>
-        <h1 className="nx-public-hero-title mx-auto max-w-6xl text-balance">
-          {ar ? (
-            <>عقل واحد للبراند. <span className="nx-public-hero-accent">وقسم تسويق تقوده أنت.</span></>
-          ) : (
-            <>One Brand Brain. <span className="nx-public-hero-accent">A marketing department you direct.</span></>
-          )}
-        </h1>
-        <p className="nx-public-hero-copy mx-auto mt-7 max-w-4xl text-pretty">
-          {ar
-            ? 'يحوّل NEXUS معرفة البراند التي راجعتها إلى استراتيجية، حملات، محتوى، موافقات، تشغيل مجدول، عملاء محتملين، وتعلّم مدعوم بالأدلة—داخل نظام واحد.'
-            : 'NEXUS turns reviewed brand knowledge into strategy, campaigns, content, approvals, scheduled operations, leads, and evidence-backed learning—inside one system.'}
-        </p>
-        <p className="mx-auto mt-4 max-w-3xl text-[13px] font-semibold leading-6 text-slate-500">
-          {ar
-            ? 'ولا ينشر أو ينفق أي شيء دون ربط وصلاحية وموافقة صريحة منك.'
-            : 'Nothing publishes or spends without a connection, valid permission, and your explicit consent.'}
-        </p>
-        <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link href="/auth/register" className="nx-public-button-primary min-w-44">
-            {ar ? 'ابدأ بـ Brand Brain' : 'Start with Brand Brain'}
-            <ArrowRight className="h-4 w-4 nx-directional-arrow" />
-          </Link>
-          <a href="#product" className="nx-public-button-secondary min-w-44">
-            {ar ? 'شاهد النظام كاملاً' : 'Explore the system'}
-          </a>
-        </div>
-        <div className="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
-          <span className="nx-public-trust-chip"><Check className="h-3.5 w-3.5" />{ar ? `${FREE_TRIAL_CREDITS} كريدت تجريبي` : `${FREE_TRIAL_CREDITS} trial credits`}</span>
-          <span className="nx-public-trust-chip"><CircleDollarSign className="h-3.5 w-3.5" />{ar ? 'بدون بطاقة للتجربة' : 'No card for trial'}</span>
-          <span className="nx-public-trust-chip"><ShieldCheck className="h-3.5 w-3.5" />{ar ? 'تنفيذ محكوم بالموافقة' : 'Approval-gated execution'}</span>
-          <span className="nx-public-trust-chip"><BarChart3 className="h-3.5 w-3.5" />{ar ? 'تعلّم من بيانات حقيقية' : 'Learning from real data'}</span>
-        </div>
-        <ProductSystemPreview ar={ar} />
+        <HeroOutcomeStrip ar={ar} />
       </section>
 
       <section id="product" className="nx-public-section nx-public-section-alt scroll-mt-20">
@@ -646,6 +819,8 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
+
+        <ProductSystemPreview ar={ar} />
       </section>
 
       <section id="capabilities" className="nx-public-section scroll-mt-20">
