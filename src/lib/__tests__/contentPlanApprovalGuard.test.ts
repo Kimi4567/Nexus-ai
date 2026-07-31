@@ -108,6 +108,38 @@ describe('contentPlanApprovalGuard', () => {
     expect(review.issues.filter(issue => issue.reason === 'generic_hook_formula')).toHaveLength(4)
   })
 
+  it('blocks production-observed Arabic real-estate guarantees before approval', () => {
+    const review = reviewContentPlanForApproval([
+      {
+        contentPlanIndex: 1,
+        caption: 'هل تعاني من إدارة الأصول العقارية الموزعة؟ اكتشف كيف يمكننا مساعدتك في تنظيمها بشكل فعال. #إدارة_العقارات #دبي',
+      },
+      {
+        contentPlanIndex: 2,
+        caption: 'تأكد من دقة حملاتك العقارية مع عملية مراجعة واضحة. ابدأ الآن لضمان محتوى موثوق. #مراجعة_الحملات #دبي',
+      },
+      {
+        contentPlanIndex: 3,
+        caption: 'هل تثق في دقة محتوى حملاتك؟ تعرف على التفاصيل حول كيفية ضمان محتوى دقيق وموثوق. #دقة_المحتوى #تسويق_عقاري',
+      },
+    ], {
+      keyMessage: 'مراجعة مواد التسويق العقاري قبل الاعتماد',
+      primaryOffer: 'استراتيجية ومحتوى عقاري من أصول يقدّمها المستخدم',
+      contentPillars: ['تنظيم الأصول', 'مراجعة المحتوى'],
+    }, [
+      'Aster Property Marketing',
+      'شركة تسويق عقاري في دبي تُعد الاستراتيجية والمحتوى من أصول عقارية يقدّمها المستخدم',
+      'لا توجد نتائج أداء أو شهادات أو إثبات جودة موثق',
+    ])
+
+    expect(review.ok).toBe(false)
+    expect(review.issues.map(issue => issue.reason)).toEqual(expect.arrayContaining([
+      'generic_hook_formula',
+      'unsupported_guarantee',
+      'unverified_feature_or_outcome',
+    ]))
+  })
+
   it('allows aligned, review-safe drafts', () => {
     const review = reviewContentPlanForApproval([
       { contentPlanIndex: 1, caption: 'Save three questions to ask your dentist during a dental consultation.' },

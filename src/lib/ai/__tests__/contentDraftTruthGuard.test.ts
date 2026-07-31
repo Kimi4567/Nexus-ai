@@ -194,6 +194,20 @@ describe('contentDraftTruthGuard', () => {
     expect(out).not.toMatch(/لضمان سير العمل بسلاسة|نجعل الرحلة سهلة|لا تقلق من عدم تطابق|رؤية واضحة للنتيجة النهائية/i)
   })
 
+  it('repairs production-observed Arabic real-estate marketing guarantees and filler', () => {
+    const guarded = [
+      'هل تعاني من إدارة الأصول العقارية الموزعة؟ اكتشف كيف يمكننا مساعدتك في تنظيمها بشكل فعال. #إدارة_العقارات #دبي',
+      'تأكد من دقة حملاتك العقارية مع عملية مراجعة واضحة. ابدأ الآن لضمان محتوى موثوق. #مراجعة_الحملات #دبي',
+      'هل تثق في دقة محتوى حملاتك؟ تعرف على التفاصيل حول كيفية ضمان محتوى دقيق وموثوق. #دقة_المحتوى #تسويق_عقاري',
+    ].map(caption => guardContentDraftText(caption))
+
+    expect(guarded[0]).toContain('راجع كيف تُجمع الأصول ورسائل الحملة في مسار واحد قابل للمراجعة')
+    expect(guarded[1]).toContain('راجع دقة مسودات حملاتك العقارية')
+    expect(guarded[1]).toContain('راجع المحتوى قبل اعتماده')
+    expect(guarded[2]).toContain('تعرّف على خطوات مراجعة المحتوى قبل اعتماده')
+    expect(guarded.join(' ')).not.toMatch(/اكتشف كيف يمكننا مساعدتك|بشكل فعال|تأكد من دقة|ضمان محتوى|محتوى دقيق وموثوق/i)
+  })
+
   it('softens English perfection and superlative coffee claims', () => {
     const blend = guardContentDraftText('Discover the perfect blend for your morning routine.')
     expect(blend).toContain('balanced blend')

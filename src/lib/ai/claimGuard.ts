@@ -63,6 +63,7 @@ const PATTERNS: { category: ClaimCategory; re: RegExp }[] = [
   // includes) are incorrectly read as a guarantee and block approval.
   { category: 'guarantee', re: /(?<![\p{L}\p{M}])(?:تضمن|يضمن|نضمن|أضمن)(?:\s+لك)?(?![\p{L}\p{M}])|نتائج\s+مضمونة|تحميك\s+من\s+(?:مشاكل|أمراض)|يغير\s+تجربتك\s+الصحية\s+بالكامل/giu },
   { category: 'guarantee', re: /(?:لضمان|ضمان)\s+(?:راحة\s+البال|النتائج?|النجاح|الجودة|الرضا|التسليم|عدم\s+التأخير|سير\s+العمل\s+بسلاسة)(?=\s|[،,.!?؟]|$)/giu },
+  { category: 'guarantee', re: /(?:لضمان|ضمان|كيفية\s+ضمان)\s+محتوى\s+(?:دقيق(?:\s+و\s*)?موثوق|موثوق)(?=\s|[،,.!?؟]|$)/giu },
   { category: 'guarantee', re: /(?:نجعل|تجعل)\s+(?:هذه\s+)?(?:ال)?رحلة\s+(?:سهلة|سلسة)(?:\s+وممتعة)?|رؤية\s+واضحة\s+للنتيجة\s+النهائية/giu },
   { category: 'guarantee', re: /دون\s+عناء(?:\s+المتابعة\s+اليومية)?|(?:نهتم|سنهتم|نعتني|سنعتني)\s+(?:لك\s+)?بكل\s+(?:شيء|التفاصيل)|(?:اترك|اتركي)\s+لنا\s+(?:كل\s+)?(?:التفاصيل|المشوار)|(?:اطمئن|اطمئني)\s+(?:و)?(?:اترك|اتركي)|تساعد\s+على\s+كل\s+التفاصيل|يحتوي\s+راحتك|راحة\s+البال|تجنب\s+المفاجآت\s+المالية|دراية\s+تامة\s+بكل\s+خطوة|إشراف(?:ًا|ا)?\s+كامل(?:ًا|اً|ا)?\s+على\s+التنفيذ/giu },
   { category: 'guarantee', re: /\b(?:hassle[-\s]?free|we\s+handle\s+every\s+detail|complete\s+peace\s+of\s+mind|avoid\s+financial\s+surprises|full\s+execution\s+supervision)\b/gi },
