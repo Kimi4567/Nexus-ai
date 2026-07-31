@@ -121,6 +121,7 @@ function cleanText(value: unknown, max: number): string {
       .normalize('NFKC')
       .replace(/https?:\/\/\S+/gi, '')
       .replace(/#[\p{L}\p{N}_-]+/gu, '')
+      .replace(/[\p{Extended_Pictographic}\uFE0F]/gu, ' ')
       .replace(/[\r\n\t]+/g, ' ')
       .replace(/[,/%\\]+/g, ' ')
       .replace(/\s+/g, ' ')

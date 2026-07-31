@@ -83,16 +83,17 @@ const ENGLISH_SCOPE_PATTERN = /\b(?:within|inside)\s+Dubai\s+only\b/iu
 const NEUTRAL_CTAS = new Set(['عرض التفاصيل', 'View details'])
 
 function clean(value: unknown, max = 120): string {
-  return typeof value === 'string'
-    ? value
-      .normalize('NFKC')
-      .replace(/https?:\/\/\S+/gi, '')
-      .replace(/#[\p{L}\p{N}_-]+/gu, '')
-      .replace(/[\r\n\t]+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, max)
-    : ''
+  if (typeof value !== 'string') return ''
+  const normalizedValue = value
+    .normalize('NFKC')
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(/#[\p{L}\p{N}_-]+/gu, '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (normalizedValue.length <= max) return normalizedValue
+  const boundary = normalizedValue.slice(0, max + 1).lastIndexOf(' ')
+  return normalizedValue.slice(0, boundary >= Math.floor(max * 0.55) ? boundary : max).trim()
 }
 
 function normalized(value: string): string {
@@ -121,6 +122,33 @@ function exactSupportingSentence(caption: string, excluded: string[]): string | 
     })
 
   return candidates[0] || null
+}
+
+function exactAudienceLead(caption: string, excluded: string[]): string | null {
+  const normalizedExcluded = excluded.map(normalized).filter(Boolean)
+  const firstSentence = caption.split(/[.!?؟]+/u)[0]?.trim() || ''
+  const commaLead = firstSentence.split(/[,،:]+/u)[0]?.trim() || ''
+  if (!commaLead || commaLead === firstSentence) return null
+
+  const words = commaLead.split(/\s+/).filter(Boolean)
+  const bounded: string[] = []
+  for (const word of words) {
+    const candidate = [...bounded, word].join(' ')
+    if (candidate.length > 42) break
+    bounded.push(word)
+  }
+  const lead = clean(bounded.join(' '), 42)
+  const normalizedLead = normalized(lead)
+  if (
+    lead.length < 4
+    || normalizedExcluded.some(exclusion => (
+      normalizedLead.includes(exclusion)
+      || exclusion.includes(normalizedLead)
+    ))
+  ) {
+    return null
+  }
+  return lead
 }
 
 function isHexColor(value: string): boolean {
@@ -157,12 +185,13 @@ export function buildProfessionalVideoTimeline(input: {
       : 'BRAND_STORY'
 
   const headline = clean(price || duration || input.copy.hook, 34)
+  const audienceLead = exactAudienceLead(caption, [headline])
   const eyebrow = clean(
     template === 'OFFER_REVEAL'
       ? quantity || input.copy.hook
       : template === 'SERVICE_PROMISE'
         ? scope || input.copy.hook
-        : input.copy.brandLabel,
+        : audienceLead || input.copy.hook,
     42,
   )
   const supporting = exactSupportingSentence(caption, [headline, eyebrow])

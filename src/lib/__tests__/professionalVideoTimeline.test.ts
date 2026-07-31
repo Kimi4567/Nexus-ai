@@ -4,6 +4,7 @@ import {
   PROFESSIONAL_VIDEO_TIMELINE_VERSION,
   validateProfessionalVideoTimeline,
 } from '@/lib/professionalVideoTimeline'
+import { buildMotionDesignCopy } from '@/lib/motionDesignAd'
 
 describe('professional video timeline', () => {
   it('turns an approved subscription offer into separate readable layers without paraphrasing', () => {
@@ -69,6 +70,30 @@ describe('professional video timeline', () => {
         eyebrow: 'داخل دبي فقط',
         headline: '48 ساعة',
         supporting: 'راجع عنوان التوصيل وتفاصيل الاشتراك قبل الطلب',
+      },
+    })
+    expect(validateProfessionalVideoTimeline(timeline, caption)).toEqual({ ok: true, issues: [] })
+  })
+
+  it('builds a grounded service-business brand story from the approved production caption', () => {
+    const caption = 'وسطاء العقارات، هل تواجهون تحديات في تنظيم حملاتكم التسويقية؟ 📊 دعونا نحوّل صور عقاراتكم إلى مسودات محتوى قابلة للمراجعة! استراتيجيات مدروسة تبنيها على بياناتكم. #تسويق_عقاري #دبي #حملات_تسويقية'
+    const timeline = buildProfessionalVideoTimeline({
+      copy: buildMotionDesignCopy({
+        brandName: 'Aster Property Marketing',
+        caption,
+      }),
+      caption,
+      sourceMatchesTarget: true,
+    })
+
+    expect(timeline).toMatchObject({
+      template: 'BRAND_STORY',
+      copy: {
+        brand: 'Aster Property Marketing',
+        eyebrow: 'وسطاء العقارات',
+        headline: 'دعونا نحوّل صور عقاراتكم إلى',
+        supporting: 'استراتيجيات مدروسة تبنيها على بياناتكم',
+        cta: 'عرض التفاصيل',
       },
     })
     expect(validateProfessionalVideoTimeline(timeline, caption)).toEqual({ ok: true, issues: [] })
