@@ -585,12 +585,8 @@ function guardBusinessObjectiveGoal(
   const ar = isArabicLanguage(language)
   const objective = (() => {
     if (
-      normalizedGoal === 'lead'
-      || normalizedGoal === 'leads'
-      || normalizedGoal.includes('lead')
-      || normalizedGoal.includes('qualified lead')
-      || normalizedGoal.includes('demo')
-      || /عم(?:يل|لاء)\s+محتمل|استفسار|طلب\s+عرض|عرض\s+توضيحي/.test(normalizedGoal)
+      normalizedGoal.includes('demo')
+      || /عرض\s+توضيحي/.test(normalizedGoal)
     ) {
       return ar
         ? {
@@ -600,6 +596,23 @@ function guardBusinessObjectiveGoal(
         : {
             marketing: 'Generate qualified demo interest and capture it through the user-reviewed conversion path.',
             successIn30Days: 'Establish a baseline for qualified interest and demo-path completion from real data.',
+          }
+    }
+    if (
+      normalizedGoal === 'lead'
+      || normalizedGoal === 'leads'
+      || normalizedGoal.includes('lead')
+      || normalizedGoal.includes('qualified lead')
+      || /عم(?:يل|لاء)\s+محتمل|استفسار|طلب\s+عرض/.test(normalizedGoal)
+    ) {
+      return ar
+        ? {
+            marketing: 'توليد استفسارات مؤهلة وتسجيلها عبر مسار التحويل الذي راجعه المستخدم.',
+            successIn30Days: 'تحديد خط أساس للاستفسارات المؤهلة واكتمال مسار التحويل من بيانات حقيقية.',
+          }
+        : {
+            marketing: 'Generate qualified inquiries and capture them through the user-reviewed conversion path.',
+            successIn30Days: 'Establish a baseline for qualified inquiries and conversion-path completion from real data.',
           }
     }
     if (

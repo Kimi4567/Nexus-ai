@@ -146,9 +146,23 @@ describe('guardStrategyOutputContract', () => {
       },
     }, { goal: 'LEADS', language: 'en' })
 
-    expect(out.businessObjective.marketing).toContain('qualified demo interest')
+    expect(out.businessObjective.marketing).toContain('qualified inquiries')
     expect(out.businessObjective.successIn30Days).toContain('baseline')
+    expect(out.businessObjective.successIn30Days).not.toContain('demo-path')
     expect(out.businessObjective.marketing).not.toContain('awareness')
+  })
+
+  it('keeps demo-path language only when the reviewed goal explicitly requests demos', () => {
+    const out = guardStrategyOutputContract({
+      businessObjective: {
+        primary: 'Generate qualified demos',
+        marketing: 'Increase brand awareness',
+        successIn30Days: 'Grow awareness',
+      },
+    }, { goal: 'Generate qualified demos', language: 'en' })
+
+    expect(out.businessObjective.marketing).toContain('qualified demo interest')
+    expect(out.businessObjective.successIn30Days).toContain('demo-path')
   })
 
   it('aligns a localized Arabic sales goal with a measurable baseline', () => {
