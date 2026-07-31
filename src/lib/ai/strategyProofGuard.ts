@@ -508,6 +508,25 @@ function softenUnsupportedPerformancePromises(text: string): string {
   return startedCapitalized ? guarded.replace(/^([a-z])/, char => char.toUpperCase()) : guarded
 }
 
+function softenUnsupportedCampaignReliabilityClaims(
+  text: string,
+  context: StrategyProofContext,
+): string {
+  const commercialEvidence = [
+    ...(Array.isArray(context.commercialClaimText) ? context.commercialClaimText : []),
+    ...(Array.isArray(context.verifiedProof) ? context.verifiedProof : []),
+  ].join(' ')
+  const reliabilityClaim = /حملات?\s+(?:[\p{L}\p{M}]+\s+){0,4}و?موثوقة(?=\s|[،,.!?؟]|$)/giu
+
+  if (hasAffirmedClaim(commercialEvidence, reliabilityClaim)) return text
+
+  return replaceAffirmedOfferAssurance(
+    text,
+    reliabilityClaim,
+    'مسودات حملات قابلة للمراجعة',
+  )
+}
+
 function softenUnsupportedServiceClaims(text: string, context: StrategyProofContext): string {
   const allowed = allowedClaimsText(context)
   let guarded = text
@@ -720,7 +739,10 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
           softenUnsupportedServiceClaims(
             softenUnsupportedMarketAssumptions(
               softenUnsupportedExperienceClaims(
-                softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded)),
+                softenUnsupportedCampaignReliabilityClaims(
+                  softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded)),
+                  context,
+                ),
                 context,
               ),
               context,

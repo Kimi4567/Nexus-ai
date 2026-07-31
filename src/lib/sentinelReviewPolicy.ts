@@ -1,4 +1,4 @@
-export const SENTINEL_REVIEW_POLICY_VERSION = 2 as const
+export const SENTINEL_REVIEW_POLICY_VERSION = 3 as const
 
 type SentinelReviewLike = {
   status?: unknown

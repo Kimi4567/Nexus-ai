@@ -27,6 +27,32 @@ describe('strategyProofGuard', () => {
     expect(joined).not.toMatch(/تحسين استفساراتك|محتوى فعالة|أكثر فعالية|حملات عقارية موثوقة|حلولاً متكاملة/)
   })
 
+  it('repairs campaign reliability claims across nested real-estate strategy fields', () => {
+    const guarded = guardStrategyProof({
+      audience: 'وسطاء عقاريون مستقلون ووكالات صغيرة في دبي يبحثون عن حملات عقارية موثوقة.',
+      valuePropositions: [
+        'حملات موثوقة',
+        'حملات عقارية متسقة وموثوقة.',
+        'حملات فعالة وموثوقة.',
+      ],
+      whyNow: 'الحاجة إلى حملات موثوقة في سوق دبي العقاري.',
+      doNotDoYet: ['لا تستخدم حملات موثوقة في النسخة النهائية.'],
+    }, {
+      verifiedProof: [],
+      commercialClaimText: [],
+      allowedClaimText: [],
+    })
+
+    expect(guarded.audience).toContain('مسودات حملات قابلة للمراجعة')
+    expect(guarded.valuePropositions).toEqual([
+      'مسودات حملات قابلة للمراجعة',
+      'مسودات حملات قابلة للمراجعة.',
+      'مسودات حملات قابلة للمراجعة.',
+    ])
+    expect(guarded.whyNow).toBe('الحاجة إلى مسودات حملات قابلة للمراجعة في سوق دبي العقاري.')
+    expect(guarded.doNotDoYet).toEqual(['لا تستخدم حملات موثوقة في النسخة النهائية.'])
+  })
+
   it('repairs unsupported legacy positioning and awkward claim-softening leftovers', () => {
     const guarded = guardStrategyProof({
       positioning: 'Noura is the premium dental clinic for local professionals.',
