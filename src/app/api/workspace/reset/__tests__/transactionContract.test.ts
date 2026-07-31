@@ -12,8 +12,10 @@ describe('workspace reset transaction contract', () => {
 
   it('keeps reset verification and Brand Brain reset in the same batch', () => {
     expect(source).toContain('brandResetOperation')
+    expect(source).toContain('projectResetOperation')
     expect(source).toContain('...verificationOperations')
     expect(source).toContain('brandVerificationOperation')
+    expect(source).toContain('projectVerificationOperation')
     expect(source).toContain('resetVerified')
   })
 })

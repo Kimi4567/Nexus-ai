@@ -11,6 +11,7 @@ import {
   hasBrandIdentityChange,
   invalidateDependentBrandContext,
 } from '@/lib/brandContextLifecycle'
+import { buildProjectBrandContext } from '@/lib/projectBrandContext'
 
 function toStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -284,6 +285,17 @@ export async function POST(req: NextRequest) {
           }
           return saved
         })
+
+    // Project is a legacy compatibility shell used by campaign/media routes.
+    // Keep it aligned with the workspace-level Brand Brain so a fresh brand can
+    // never inherit stale business context from a previous reset journey.
+    const projectBrandContext = buildProjectBrandContext(brandProfile)
+    if (projectBrandContext) {
+      await prisma.project.updateMany({
+        where: { workspaceId: workspace.id },
+        data: projectBrandContext,
+      })
+    }
 
     const maturity = await snapshotBrandMaturity(prisma, workspace.id)
       ?? calculateBrandMaturity(brandProfile as Record<string, unknown>)

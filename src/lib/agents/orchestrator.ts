@@ -31,6 +31,7 @@ import {
   type StrategyDeliveryOutcome,
 } from '@/lib/strategy/strategyPartialDelivery'
 import { isExpectedMarketingGovernanceRejection } from '@/lib/observability/operationalError'
+import { buildProjectBrandContext } from '@/lib/projectBrandContext'
 
 // Re-export for API routes
 export type { BusinessBrief }
@@ -235,13 +236,33 @@ export async function runFullAgency(
         where: { workspaceId },
         orderBy: { createdAt: 'desc' },
       })
+      const projectBrandContext = buildProjectBrandContext(
+        strategyContext.safeBrandProfile,
+      ) ?? {
+        name: effectiveBrief.companyName.slice(0, 120) || 'My Project',
+        description: effectiveBrief.targetAudience?.slice(0, 2_000) || null,
+        businessType: effectiveBrief.businessType?.slice(0, 120) || null,
+        businessInfo: {
+          brandName: effectiveBrief.companyName.slice(0, 120) || 'My Brand',
+          industry: effectiveBrief.businessType?.slice(0, 120) || null,
+          description: null,
+          targetAudience: effectiveBrief.targetAudience?.slice(0, 1_000) || null,
+          primaryOffer: null,
+        },
+      }
       if (!project) {
         project = await tx.project.create({
           data: {
             workspaceId,
-            name: `${effectiveBrief.companyName.slice(0, 90)} Marketing`,
-            description: effectiveBrief.targetAudience?.slice(0, 500),
-            businessType: effectiveBrief.businessType?.slice(0, 120),
+            ...projectBrandContext,
+            status: 'ACTIVE',
+          },
+        })
+      } else {
+        project = await tx.project.update({
+          where: { id: project.id },
+          data: {
+            ...projectBrandContext,
             status: 'ACTIVE',
           },
         })

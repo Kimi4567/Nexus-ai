@@ -27,7 +27,12 @@ const { mockAuth, prismaMock, RESET_MODELS, FORBIDDEN_MODELS } = vi.hoisted(() =
   const FORBIDDEN_MODELS = ['integration', 'adAccount', 'project', 'workspaceMember']
   const models: Record<string, any> = {}
   for (const m of [...RESET_MODELS, ...FORBIDDEN_MODELS]) {
-    models[m] = { deleteMany: vi.fn().mockResolvedValue({ count: 1 }), count: vi.fn().mockResolvedValue(1) }
+    models[m] = {
+      deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+      count: vi.fn().mockResolvedValue(1),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findMany: vi.fn().mockResolvedValue([]),
+    }
   }
   const prismaMock = {
     ...models,
@@ -117,6 +122,17 @@ describe('POST /api/workspace/reset (PR-1G)', () => {
       })
     )
     expect(data.brandProfileReset).toBe(true)
+    expect(data.projectShellsReset).toBe(1)
+    expect(prismaMock.project.updateMany).toHaveBeenCalledWith({
+      where: { workspaceId: 'ws1' },
+      data: {
+        name: 'My Project',
+        description: null,
+        businessType: null,
+        businessInfo: expect.anything(),
+        status: 'DRAFT',
+      },
+    })
     expect(data.connectionsPreserved).toBe(true)
     expect(data.creditsUnchanged).toBe(true)
     expect(data.preserved).toEqual(expect.arrayContaining(['Integration', 'AdAccount', 'CreditTransaction']))
@@ -126,6 +142,7 @@ describe('POST /api/workspace/reset (PR-1G)', () => {
     expect(data.verification.remaining).toEqual(
       Object.fromEntries(RESET_MODELS.map(model => [model, 0])),
     )
+    expect(data.verification.dirtyProjectIds).toEqual([])
   })
 
   it('NEVER deletes connections / access / account models', async () => {
@@ -152,6 +169,7 @@ describe('POST /api/workspace/reset (PR-1G)', () => {
       expect(prismaMock[m].deleteMany).not.toHaveBeenCalled()
     }
     expect(prismaMock.brandProfile.updateMany).not.toHaveBeenCalled()
+    expect(prismaMock.project.updateMany).not.toHaveBeenCalled()
   })
 
   it('fails closed when same-transaction verification finds remaining journey data', async () => {

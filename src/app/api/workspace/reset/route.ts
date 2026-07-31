@@ -7,7 +7,7 @@
  * again from scratch.
  *
  * PRESERVES account infrastructure and platform connections:
- *   User · Session · Account · Workspace · WorkspaceMember · Project ·
+ *   User · Session · Account · Workspace · WorkspaceMember · Project shell ·
  *   Subscription · Usage · CreditTransaction (credits) · Integration + OAuth
  *   tokens (Facebook / TikTok / LinkedIn) · AdAccount · RateLimitRecord ·
  *   DataDeletionRequest.
@@ -43,6 +43,14 @@ const PRESERVED = [
   'Subscription', 'Usage', 'CreditTransaction', 'Integration', 'AdAccount',
   'RateLimitRecord', 'DataDeletionRequest',
 ] as const
+
+const PROJECT_RESET = {
+  name: 'My Project',
+  description: null,
+  businessType: null,
+  businessInfo: Prisma.JsonNull,
+  status: 'DRAFT',
+} as const
 
 // BrandProfile fields wiped on reset (the row itself is kept).
 const BRAND_RESET: Record<string, unknown> = {
@@ -156,6 +164,7 @@ export async function POST(req: NextRequest) {
         timestamp: new Date().toISOString(),
         wouldDelete,
         brandProfileWouldReset: brandExists,
+        projectsWouldReset: await prisma.project.count({ where }),
         preserved: PRESERVED,
         creditsUnchanged: true,
         connectionsPreserved: true,
@@ -166,7 +175,8 @@ export async function POST(req: NextRequest) {
     // ── Real reset: delete in order, collecting per-model counts ────────────
     // NOTE: Integration, AdAccount, Project and WorkspaceMember are intentionally
     // NOT deleted (PR-1G) so platform connections / OAuth tokens, ad accounts,
-    // and workspace access survive the reset.
+    // and workspace access survive the reset. The Project shell is sanitized so
+    // a new Brand Brain cannot inherit the previous brand's business context.
     // Use a sequential batch transaction instead of a long-running interactive
     // transaction. Supabase/pgBouncer can drop an interactive transaction while
     // the route waits across many round trips; Prisma batch transactions retain
@@ -216,16 +226,33 @@ export async function POST(req: NextRequest) {
       where: { workspaceId: wid },
       data: BRAND_RESET as any,
     })
+    const projectResetOperation = prisma.project.updateMany({
+      where,
+      data: PROJECT_RESET,
+    })
     const verificationOperations = resetModels.map(model => model.count())
     const brandVerificationOperation = prisma.brandProfile.findUnique({
       where: { workspaceId: wid },
+    })
+    const projectVerificationOperation = prisma.project.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        businessType: true,
+        businessInfo: true,
+        status: true,
+      },
     })
 
     const results = await (prisma as any).$transaction([
       ...deleteOperations,
       brandResetOperation,
+      projectResetOperation,
       ...verificationOperations,
       brandVerificationOperation,
+      projectVerificationOperation,
     ], {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     }) as Array<any>
@@ -234,32 +261,46 @@ export async function POST(req: NextRequest) {
       resetModels.map((model, index) => [model.name, results[index]?.count ?? 0]),
     )
     const brandUpdateIndex = resetModels.length
-    const verificationStartIndex = brandUpdateIndex + 1
+    const projectUpdateIndex = brandUpdateIndex + 1
+    const verificationStartIndex = projectUpdateIndex + 1
     const remaining = Object.fromEntries(
       resetModels.map((model, index) => [model.name, Number(results[verificationStartIndex + index] ?? 0)]),
     )
     const brandAfterReset = results[verificationStartIndex + resetModels.length] as Record<string, unknown> | null
+    const projectsAfterReset = results[verificationStartIndex + resetModels.length + 1] as Array<Record<string, unknown>>
     const dirtyBrandFields = brandAfterReset
       ? Object.entries(BRAND_RESET)
           .filter(([key, expected]) => !brandFieldIsReset(brandAfterReset[key], expected))
           .map(([key]) => key)
       : []
+    const dirtyProjectIds = projectsAfterReset
+      .filter(project => (
+        project.name !== PROJECT_RESET.name
+        || project.description !== PROJECT_RESET.description
+        || project.businessType !== PROJECT_RESET.businessType
+        || project.businessInfo != null
+        || project.status !== PROJECT_RESET.status
+      ))
+      .map(project => String(project.id))
     const resetVerified = Object.values(remaining).every(count => count === 0)
       && dirtyBrandFields.length === 0
+      && dirtyProjectIds.length === 0
 
     if (!resetVerified) {
       const verificationError = new Error('WORKSPACE_RESET_VERIFICATION_FAILED') as Error & {
         details?: Record<string, unknown>
       }
-      verificationError.details = { remaining, dirtyBrandFields }
+      verificationError.details = { remaining, dirtyBrandFields, dirtyProjectIds }
       throw verificationError
     }
 
     const outcome = {
       deleted,
       brandProfileReset: Number(results[brandUpdateIndex]?.count ?? 0) > 0,
+      projectShellsReset: Number(results[projectUpdateIndex]?.count ?? 0),
       remaining,
       dirtyBrandFields,
+      dirtyProjectIds,
       resetVerified,
     }
 
@@ -289,6 +330,7 @@ export async function POST(req: NextRequest) {
       timestamp: new Date().toISOString(),
       deleted: outcome.deleted,
       brandProfileReset: outcome.brandProfileReset,
+      projectShellsReset: outcome.projectShellsReset,
       preserved: PRESERVED,
       creditsUnchanged: true,
       connectionsPreserved: true,
@@ -300,6 +342,7 @@ export async function POST(req: NextRequest) {
       verification: {
         remaining: outcome.remaining,
         dirtyBrandFields: outcome.dirtyBrandFields,
+        dirtyProjectIds: outcome.dirtyProjectIds,
       },
       next: '/onboarding',
     })
