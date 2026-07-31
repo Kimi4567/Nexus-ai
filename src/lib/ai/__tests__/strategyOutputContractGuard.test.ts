@@ -120,6 +120,23 @@ describe('guardStrategyOutputContract', () => {
     expect(report.blockers.map(item => item.code)).not.toContain('unsourced_channel_market_claim')
   })
 
+  it('labels a plain effective-for channel rationale as a hypothesis', () => {
+    const out = guardStrategyOutputContract({
+      channelStrategy: [{
+        platform: 'LinkedIn',
+        reason: 'LinkedIn is effective for professional networking and B2B engagement.',
+      }],
+    }, {
+      allowedPlatforms: ['LINKEDIN'],
+      strategyType: 'organic',
+      language: 'bilingual',
+    })
+
+    expect(out.channelStrategy[0].reason).toBe(
+      'Planning hypothesis to validate, not a market fact: LinkedIn is effective for professional networking and B2B engagement.',
+    )
+  })
+
   it('aligns the marketing objective with the user-reviewed lead goal', () => {
     const out = guardStrategyOutputContract({
       businessObjective: {

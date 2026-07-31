@@ -347,6 +347,23 @@ describe('marketingQualityGate', () => {
     expect(hypothesis.blockers.map(item => item.code)).not.toContain('unsourced_channel_market_claim')
   })
 
+  it('treats effective-for platform wording as an unsourced market claim', () => {
+    const report = reviewStrategyGrounding({
+      strategy: {
+        ...groundedStrategy,
+        channelStrategy: [{
+          platform: 'LINKEDIN',
+          reason: 'LinkedIn is effective for professional networking and B2B engagement.',
+        }],
+      },
+      brand: dentalBrand,
+      allowedPlatforms: ['INSTAGRAM', 'LINKEDIN'],
+      checkedAt: '2026-07-18T00:00:00.000Z',
+    })
+
+    expect(report.blockers.map(item => item.code)).toContain('unsourced_channel_market_claim')
+  })
+
   it('blocks unsupported quality facts but treats unreviewed premium positioning as a warning', () => {
     const report = reviewStrategyGrounding({
       strategy: {
