@@ -159,4 +159,21 @@ describe('visual audit regressions', () => {
     expect(media).toContain('<Images className="h-5 w-5" />')
     expect(media).not.toContain('aria-hidden="true">🖼️')
   })
+
+  it('keeps the shared visual system sharp and consistent', () => {
+    const styles = source('src/app/globals.css')
+    const landing = source('src/app/page.tsx')
+
+    expect(styles).toContain('--nx-page-max: 1480px')
+    expect(styles).toContain('--nx-card-radius: 22px')
+    expect(styles).toContain('--nx-panel-radius: 28px')
+    expect(styles).toContain('--nx-control-radius: 14px')
+    expect(styles).toContain('text-rendering: geometricPrecision')
+    expect(styles).toContain('.nx-public-hero-title')
+    expect(styles).toContain('font-size: clamp(3rem, 6.6vw, 5.35rem)')
+    expect(styles).toContain('.nx-dashboard-command')
+    expect(styles).toContain('border-radius: 30px')
+    expect(landing).not.toContain('nx-public-button-primary min-h-9')
+    expect(landing).toContain('nx-public-button-primary min-h-10')
+  })
 })

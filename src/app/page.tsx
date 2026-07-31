@@ -101,16 +101,16 @@ function Header({ ar, setLang }: { ar: boolean; setLang: (lang: 'ar' | 'en') => 
           <button
             type="button"
             onClick={() => setLang(ar ? 'en' : 'ar')}
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/60 px-3 text-[12px] font-semibold text-slate-600 transition hover:border-violet-200 hover:text-violet-700"
+            className="inline-flex h-10 items-center gap-1.5 rounded-[14px] border border-slate-200/80 bg-white/70 px-3 text-[12.5px] font-bold text-slate-600 transition hover:border-violet-200 hover:bg-white hover:text-violet-700"
             aria-label={ar ? 'Switch to English' : 'التبديل إلى العربية'}
           >
             <Globe className="h-3.5 w-3.5" aria-hidden="true" />
             {ar ? 'English' : 'العربية'}
           </button>
-          <Link href="/auth/login" className="rounded-xl px-3 py-2 text-[12px] font-semibold text-slate-600 transition hover:bg-white/70 hover:text-slate-950">
+          <Link href="/auth/login" className="rounded-[14px] px-3 py-2.5 text-[12.5px] font-bold text-slate-600 transition hover:bg-white/75 hover:text-slate-950">
             {ar ? 'تسجيل الدخول' : 'Sign in'}
           </Link>
-          <Link href="/auth/register" className="nx-public-button-primary min-h-9 rounded-xl px-4 text-[12px]">
+          <Link href="/auth/register" className="nx-public-button-primary min-h-10 px-4 text-[12.5px]">
             {ar ? 'ابدأ مجاناً' : 'Start free'}
           </Link>
         </div>
@@ -427,7 +427,7 @@ function PriceCard({
       </div>
       <Link
         href={`/auth/register?plan=${plan.slug}`}
-        className={`mt-7 flex min-h-11 items-center justify-center rounded-xl px-4 text-center text-[13px] font-bold ${featured ? 'bg-white text-slate-950 shadow-lg' : 'nx-public-button-primary'}`}
+        className={`mt-7 flex min-h-12 items-center justify-center rounded-[14px] px-5 text-center text-[13.5px] font-bold ${featured ? 'bg-white text-slate-950 shadow-lg' : 'nx-public-button-primary'}`}
       >
         {ar ? `استكشف ${plan.name}` : `Review ${plan.name}`}
       </Link>
