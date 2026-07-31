@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
+import { SENTINEL_REVIEW_POLICY_VERSION } from '@/lib/sentinelReviewPolicy'
 
 const mocks = vi.hoisted(() => ({
   getUserId: vi.fn(),
@@ -89,7 +90,7 @@ beforeEach(() => {
     aiOutput: {
       strategy: { positioning: 'Reviewed positioning' },
       qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
-      sentinelReview: { status: 'passed' },
+      sentinelReview: { status: 'passed', policyVersion: SENTINEL_REVIEW_POLICY_VERSION },
     },
     snapshotVersion: 1,
     workspace: {

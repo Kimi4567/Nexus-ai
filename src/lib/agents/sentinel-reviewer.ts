@@ -20,6 +20,7 @@ import { checkAndLog } from '@/lib/outputGuardrails'
 import { detectUnsupportedClaims, buildClaimFixes, buildClaimWarnings } from '@/lib/ai/claimGuard'
 import { readOpenAIChatUsage, summarizeOpenAITextUsage, type ProviderUsageSummary } from '@/lib/ai/providerEconomics'
 import { fetchAiProvider } from '@/lib/ai/providerFetch'
+import { SENTINEL_REVIEW_POLICY_VERSION } from '@/lib/sentinelReviewPolicy'
 
 // ─── Input ────────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,7 @@ export interface SentinelReviewInput {
 // ─── Output ───────────────────────────────────────────────────────────────────
 
 export interface SentinelReviewOutput {
+  policyVersion: typeof SENTINEL_REVIEW_POLICY_VERSION
   status: 'passed' | 'needs_attention'
   riskScore: number         // 0-100 — lower is better
   brandConsistencyScore: number // 0-100 — higher is better
@@ -270,6 +272,7 @@ export function normalizeSentinelAssessment(
       : `Automated comparison with the supplied brand profile: ${brandScore}/100. This is a review signal, not a performance measurement.`
 
   return {
+    policyVersion: SENTINEL_REVIEW_POLICY_VERSION,
     status,
     riskScore: finalRiskScore,
     brandConsistencyScore: brandScore,

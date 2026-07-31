@@ -48,6 +48,7 @@ import { derivePlatformReadiness, type PlatformState } from '@/lib/platformReadi
 import { deriveStrategyExecutionBridge, type StrategyExecutionRequirement } from '@/lib/strategyExecutionBridge'
 import { deriveStrategyFulfillmentSummary, type StrategyFulfillmentTone } from '@/lib/strategyFulfillment'
 import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
+import { isCurrentSentinelReview } from '@/lib/sentinelReviewPolicy'
 import {
   waitForAutomationJob,
   type AutomationJobClientRecord,
@@ -741,7 +742,9 @@ function CampaignDetailPageInner() {
         // Restore sentinel state from stored review so we never show stale errors
         // when the user navigates back to a campaign that already passed
         const storedReview = (d.campaign?.aiOutput as any)?.sentinelReview
-        if (storedReview?.status === 'passed') setSentinelState('done')
+        if (isCurrentSentinelReview(storedReview) && storedReview?.status === 'passed') {
+          setSentinelState('done')
+        }
 
         // Fix 4: Background generation persistence
         // If _generatingAt is set and < 5 minutes old, the engine is still running.
@@ -1868,8 +1871,9 @@ function CampaignDetailPageInner() {
   const creativeMode: 'asset' | 'concept' | null = aiOutput?.creativeMode || null
   // Sprint G — sentinel review
   const sentinelReview = aiOutput?.sentinelReview || null
+  const sentinelReviewCurrent = isCurrentSentinelReview(sentinelReview)
   const sentinelStatus: 'not_reviewed' | 'passed' | 'needs_attention' =
-    sentinelReview ? sentinelReview.status : 'not_reviewed'
+    sentinelReviewCurrent ? sentinelReview.status : 'not_reviewed'
   const qualityGate = aiOutput?.qualityGate || null
   const qualityGatePassed = qualityGate?.schemaVersion === 1
     && qualityGate?.status === 'passed'
@@ -2360,10 +2364,12 @@ function CampaignDetailPageInner() {
       ? campaignCommandFlow.nextAction.labelAr
       : campaignCommandFlow.nextAction.labelEn
   const strategyHeaderNextActionHref = brandTruthBlocked ? '/brand' : campaignCommandFlow.nextAction.href
-  const sentinelCreditCost = getCreditActionTruth({
-    action: 'SENTINEL_REVIEW',
-    creditsRemaining: 0,
-  }).cost
+  const sentinelCreditCost = sentinelReview && !sentinelReviewCurrent
+    ? 0
+    : getCreditActionTruth({
+        action: 'SENTINEL_REVIEW',
+        creditsRemaining: 0,
+      }).cost
   const contentPlanCreditCost = getCreditActionTruth({
     action: 'CONTENT_PLAN_GENERATION',
     creditsRemaining: 0,

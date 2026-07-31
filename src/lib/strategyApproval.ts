@@ -1,4 +1,5 @@
 import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
+import { isCurrentSentinelReview } from '@/lib/sentinelReviewPolicy'
 
 export type StrategyApprovalState =
   | 'draft'
@@ -105,6 +106,7 @@ export function canMutateCampaignExecution(
     && qualityGate?.schemaVersion === 1
     && text(qualityGate?.status)?.toLowerCase() === 'passed'
     && (!Array.isArray(qualityGate?.blockers) || qualityGate.blockers.length === 0)
+    && isCurrentSentinelReview(sentinel)
     && text(sentinel?.status)?.toLowerCase() === 'passed'
   )
 }
@@ -141,7 +143,9 @@ export function buildStrategyApprovalContract(input: StrategyApprovalInput): Str
   const strategy = nestedStrategy ?? aiOutput
   const hasStrategy = Boolean(strategy && Object.keys(strategy).length > 0)
   const sentinel = record(aiOutput?.sentinelReview)
-  const sentinelRaw = text(sentinel?.status)?.toLowerCase()
+  const sentinelRaw = isCurrentSentinelReview(sentinel)
+    ? text(sentinel?.status)?.toLowerCase()
+    : null
   const sentinelStatus: 'not_run' | 'passed' | 'failed' = sentinelRaw === 'passed'
     ? 'passed'
     : sentinelRaw

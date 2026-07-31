@@ -30,6 +30,7 @@ import {
 } from '@/lib/ai/marketingQualityGate'
 import { enforceBillableAiRateLimit } from '@/lib/billableAiRateLimit'
 import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
+import { isCurrentSentinelReview } from '@/lib/sentinelReviewPolicy'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -93,7 +94,8 @@ export async function POST(req: NextRequest, props: Params) {
       }, { status: 409 })
     }
     if (
-      aiOutput.sentinelReview?.status !== 'passed'
+      !isCurrentSentinelReview(aiOutput.sentinelReview)
+      || aiOutput.sentinelReview?.status !== 'passed'
       || !isPersistedMarketingQualityGatePassed(aiOutput.qualityGate)
     ) {
       return NextResponse.json({

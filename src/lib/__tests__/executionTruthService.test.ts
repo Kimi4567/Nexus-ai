@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { SENTINEL_REVIEW_POLICY_VERSION } from '@/lib/sentinelReviewPolicy'
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
@@ -32,7 +33,7 @@ const campaignBase = {
       warnings: [],
       checkedAt: '2026-07-14T00:00:00.000Z',
     },
-    sentinelReview: { status: 'passed' },
+    sentinelReview: { status: 'passed', policyVersion: SENTINEL_REVIEW_POLICY_VERSION },
   },
 }
 

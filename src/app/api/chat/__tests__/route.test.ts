@@ -34,6 +34,9 @@ vi.mock('@/lib/billableAiRateLimit', () => ({
   enforceBillableAiRateLimit: vi.fn().mockResolvedValue(null),
 }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
+vi.mock('@vercel/oidc', () => ({
+  getVercelOidcToken: vi.fn().mockResolvedValue(null),
+}))
 vi.mock('@/lib/credits', () => ({
   CREDIT_COSTS: {
     RUN_FULL_STRATEGY: 8,

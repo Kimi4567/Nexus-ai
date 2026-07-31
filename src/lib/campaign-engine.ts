@@ -13,6 +13,7 @@ import {
 import { hasUsableConversionDestination } from '@/lib/strategyBriefReadiness'
 import { buildStrategyProofContextFromBrand } from '@/lib/strategy/strategyProofContext'
 import { clearSuccessfulCampaignEngineError } from '@/lib/campaignEnginePersistence'
+import { isCurrentSentinelReview } from '@/lib/sentinelReviewPolicy'
 
 const db = prisma as any
 
@@ -276,7 +277,9 @@ export function deriveCampaignEngineState(campaign: any): CampaignEngineState {
     && aiOutput.qualityGate?.status === 'passed'
     && Array.isArray(aiOutput.qualityGate?.blockers)
     && aiOutput.qualityGate.blockers.length === 0
-  const sentinelStatus = sentinelReview?.status || 'not_reviewed'
+  const sentinelStatus = isCurrentSentinelReview(sentinelReview)
+    ? sentinelReview.status
+    : 'not_reviewed'
   const calendarCount = Array.isArray(aiOutput.calendarItems) ? aiOutput.calendarItems.length : 0
 
   const hasStrategy = !!strategy && Object.keys(strategy).length > 0

@@ -3,6 +3,7 @@ import {
   deriveCampaignOperatingState,
   hasStrategyEvidence,
 } from '@/lib/campaignOperatingState'
+import { SENTINEL_REVIEW_POLICY_VERSION } from '@/lib/sentinelReviewPolicy'
 
 const strategyCampaign = {
   status: 'DRAFT',
@@ -16,7 +17,7 @@ const strategyCampaign = {
       warnings: [],
       checkedAt: '2026-01-01T00:00:00.000Z',
     },
-    sentinelReview: { status: 'passed' },
+    sentinelReview: { status: 'passed', policyVersion: SENTINEL_REVIEW_POLICY_VERSION },
   },
 }
 
@@ -74,13 +75,27 @@ describe('deriveCampaignOperatingState', () => {
     expect(state.stage).toBe('strategy_review_needed')
   })
 
+  it('reopens strategy review when the saved Sentinel policy is stale', () => {
+    const state = deriveCampaignOperatingState({
+      campaign: {
+        ...strategyCampaign,
+        aiOutput: {
+          ...strategyCampaign.aiOutput,
+          sentinelReview: { status: 'passed' },
+        },
+      },
+    })
+
+    expect(state.stage).toBe('strategy_review_needed')
+  })
+
   it('Sentinel alone cannot bypass a missing deterministic Brand Brain gate', () => {
     const state = deriveCampaignOperatingState({
       campaign: {
         status: 'DRAFT',
         aiOutput: {
           strategy: { keyMessage: 'Plan first' },
-          sentinelReview: { status: 'passed' },
+          sentinelReview: { status: 'passed', policyVersion: SENTINEL_REVIEW_POLICY_VERSION },
         },
       },
     })

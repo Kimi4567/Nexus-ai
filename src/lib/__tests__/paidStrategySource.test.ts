@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildPaidStrategyExecutionContext, inspectPaidStrategySource } from '@/lib/paidStrategySource'
+import { SENTINEL_REVIEW_POLICY_VERSION } from '@/lib/sentinelReviewPolicy'
 
 const baseCampaign = {
   id: 'campaign-1',
@@ -20,7 +21,7 @@ describe('paid strategy source truth', () => {
         strategyType: 'paid',
         strategy: { positioning: 'Clear care' },
         qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
-        sentinelReview: { status: 'passed' },
+        sentinelReview: { status: 'passed', policyVersion: SENTINEL_REVIEW_POLICY_VERSION },
       },
     })).toMatchObject({
       eligible: true,
@@ -57,7 +58,7 @@ describe('paid strategy source truth', () => {
         strategyType: 'paid',
         strategy: { positioning: 'Clear care' },
         qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
-        sentinelReview: { status: 'passed' },
+        sentinelReview: { status: 'passed', policyVersion: SENTINEL_REVIEW_POLICY_VERSION },
       },
     })).toMatchObject({ eligible: false, reason: 'APPROVAL_REQUIRED', approvalState: 'ready_for_review' })
   })
@@ -93,7 +94,7 @@ describe('paid strategy source truth', () => {
           readyForPaidAdsReason: 'Pixel is missing',
         },
         qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
-        sentinelReview: { status: 'passed' },
+        sentinelReview: { status: 'passed', policyVersion: SENTINEL_REVIEW_POLICY_VERSION },
       },
     })
 

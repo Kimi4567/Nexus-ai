@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildCampaignPortfolioSummary } from '@/lib/campaignPortfolioSummary'
+import { SENTINEL_REVIEW_POLICY_VERSION } from '@/lib/sentinelReviewPolicy'
 
 describe('campaign portfolio summary', () => {
   it('uses the reviewed order and preserves exact saved count, language, and quality state', () => {
@@ -7,7 +8,10 @@ describe('campaign portfolio summary', () => {
       strategyType: 'organic',
       strategyOrder: { strategyType: 'full', language: 'bilingual' },
       strategyDeliverables: { organicPostCount: 16 },
-      sentinelReview: { status: 'needs_attention' },
+      sentinelReview: {
+        status: 'needs_attention',
+        policyVersion: SENTINEL_REVIEW_POLICY_VERSION,
+      },
     })).toEqual({
       strategyType: 'full',
       organicPostCount: 16,
@@ -15,6 +19,12 @@ describe('campaign portfolio summary', () => {
       qualityState: 'needs_attention',
       deliveryState: null,
     })
+  })
+
+  it('reopens a quality result produced before the current policy', () => {
+    expect(buildCampaignPortfolioSummary({
+      sentinelReview: { status: 'passed' },
+    }).qualityState).toBe('not_reviewed')
   })
 
   it('does not invent scope or language for legacy records without a saved contract', () => {

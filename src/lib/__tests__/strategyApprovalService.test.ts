@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { SENTINEL_REVIEW_POLICY_VERSION } from '@/lib/sentinelReviewPolicy'
 
 const { prismaMock, txMock } = vi.hoisted(() => {
   const tx = {
@@ -44,7 +45,7 @@ const draft = {
       decisionRules: [{ signal: 'التفاعل', continueWhen: 'تحقق الزيادة بنسبة 10%' }],
     },
     qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
-    sentinelReview: { status: 'passed' },
+    sentinelReview: { status: 'passed', policyVersion: SENTINEL_REVIEW_POLICY_VERSION },
   },
   snapshotVersion: 0,
   updatedAt: new Date('2026-07-12T10:00:00.000Z'),

@@ -33,7 +33,7 @@ vi.mock('@/lib/credits', () => ({
   }),
   getCreditActionPolicy: () => ({
     action: 'SENTINEL_REVIEW',
-    cost: 2,
+    cost: 3,
     label: 'Sentinel quality review',
     reason: 'Reviews strategy quality and risk.',
   }),
@@ -56,6 +56,7 @@ vi.mock('@/lib/ai/marketingQualityGate', () => ({
 }))
 
 import { POST } from '../route'
+import { SENTINEL_REVIEW_POLICY_VERSION } from '@/lib/sentinelReviewPolicy'
 
 const params = { params: Promise.resolve({ id: 'campaign_1' }) }
 const makeReq = (body: unknown = {}) => ({ json: async () => body }) as any
@@ -91,7 +92,7 @@ beforeEach(() => {
   mockPrisma.campaign.findFirst.mockResolvedValue(campaign)
   mockPrisma.campaign.update.mockResolvedValue({ updatedAt: new Date('2026-07-22T18:00:00.000Z') })
   mockPrisma.campaignActivity.create.mockResolvedValue({})
-  mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 2, creditsRemaining: 18 })
+  mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 3, creditsRemaining: 17 })
   mockRefund.mockResolvedValue(undefined)
   mockFinalizeCreditDeduction.mockResolvedValue({ ok: true, status: 'settled' })
   mockRunSentinelReview.mockResolvedValue({
@@ -143,9 +144,9 @@ describe('POST /api/campaigns/[id]/sentinel-review — provider and credit order
     const json = await res.json()
 
     expect(res.status).toBe(200)
-    expect(json.creditsRemaining).toBe(18)
+    expect(json.creditsRemaining).toBe(17)
     expect(json.campaignUpdatedAt).toBe('2026-07-22T18:00:00.000Z')
-    expect(json.creditCharge).toMatchObject({ action: 'SENTINEL_REVIEW', cost: 2, creditsUsed: 2 })
+    expect(json.creditCharge).toMatchObject({ action: 'SENTINEL_REVIEW', cost: 3, creditsUsed: 3 })
     expect(mockCheckAndDeduct).toHaveBeenCalledWith(
       'user_1',
       'SENTINEL_REVIEW',
@@ -166,7 +167,10 @@ describe('POST /api/campaigns/[id]/sentinel-review — provider and credit order
       data: {
         aiOutput: expect.objectContaining({
           strategy: campaign.aiOutput.strategy,
-          sentinelReview: expect.objectContaining({ status: 'passed' }),
+          sentinelReview: expect.objectContaining({
+            status: 'passed',
+            policyVersion: SENTINEL_REVIEW_POLICY_VERSION,
+          }),
           nexusEngine: expect.objectContaining({
             status: 'ready_for_approval',
             sentinelStatus: 'passed',
@@ -177,6 +181,46 @@ describe('POST /api/campaigns/[id]/sentinel-review — provider and credit order
     const persistedOutput = mockPrisma.campaign.update.mock.calls[0][0].data.aiOutput
     expect(persistedOutput.nexusEngine).not.toHaveProperty('error')
     expect(mockRefund).not.toHaveBeenCalled()
+  })
+
+  it('reruns a stale quality policy without a second credit charge', async () => {
+    mockPrisma.campaign.findFirst.mockResolvedValue({
+      ...campaign,
+      aiOutput: {
+        ...campaign.aiOutput,
+        sentinelReview: {
+          status: 'passed',
+          reviewedAt: '2026-07-01T00:00:00.000Z',
+        },
+      },
+    })
+
+    const res = await POST(makeReq({ language: 'en' }), params)
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json).toMatchObject({
+      creditsUsed: 0,
+      complimentaryPolicyUpgradeRetry: true,
+      creditCharge: {
+        cost: 3,
+        creditsUsed: 0,
+        complimentaryPolicyUpgradeRetry: true,
+      },
+    })
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockFinalizeCreditDeduction).not.toHaveBeenCalled()
+    expect(mockRunSentinelReview).toHaveBeenCalledTimes(1)
+    expect(mockPrisma.campaign.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: {
+        aiOutput: expect.objectContaining({
+          sentinelReview: expect.objectContaining({
+            status: 'passed',
+            policyVersion: SENTINEL_REVIEW_POLICY_VERSION,
+          }),
+        }),
+      },
+    }))
   })
 
   it('does not charge when the user requests an automatic correction but nothing changes', async () => {

@@ -29,6 +29,10 @@ import { getCreditOperationKey } from '@/lib/creditOperationKey.server'
 import { validateCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 import { buildStrategyProofContextFromBrand } from '@/lib/strategy/strategyProofContext'
 import { applySentinelReviewToCampaignEngine } from '@/lib/campaignEnginePersistence'
+import {
+  SENTINEL_REVIEW_POLICY_VERSION,
+  isStaleSentinelReview,
+} from '@/lib/sentinelReviewPolicy'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -81,6 +85,7 @@ export async function POST(req: NextRequest, props: Params) {
 
     const brand = campaign.workspace?.brandProfile
     const aiOutput = (campaign.aiOutput as any) || {}
+    const complimentaryPolicyUpgradeRetry = isStaleSentinelReview(aiOutput.sentinelReview)
     // Review and deterministic corrections must follow the language contract of
     // the saved strategy, not the current UI locale. This is especially
     // important for bilingual strategies opened from an Arabic or English UI.
@@ -235,21 +240,31 @@ export async function POST(req: NextRequest, props: Params) {
     const rateLimitResponse = await enforceBillableAiRateLimit(userId, 'SENTINEL_REVIEW')
     if (rateLimitResponse) return rateLimitResponse
 
-    const credit = await checkAndDeductCredits(
-      userId,
-      'SENTINEL_REVIEW',
-      undefined,
-      {
-        entityId: params.id,
-        entityType: 'campaign_sentinel_review',
-        operationKey: getCreditOperationKey(req, 'SENTINEL_REVIEW', 'campaign_sentinel_review', params.id),
-      },
-    )
-    if (!credit.ok) return NextResponse.json(credit, { status: creditCheckHttpStatus(credit) })
-    chargedCredit = credit
+    let credit: CreditDeductionOk | null = null
+    if (!complimentaryPolicyUpgradeRetry) {
+      const deduction = await checkAndDeductCredits(
+        userId,
+        'SENTINEL_REVIEW',
+        undefined,
+        {
+          entityId: params.id,
+          entityType: 'campaign_sentinel_review',
+          operationKey: getCreditOperationKey(req, 'SENTINEL_REVIEW', 'campaign_sentinel_review', params.id),
+        },
+      )
+      if (!deduction.ok) {
+        return NextResponse.json(deduction, { status: creditCheckHttpStatus(deduction) })
+      }
+      credit = deduction
+      chargedCredit = deduction
+    }
 
     const sentinelReviewResult = await runSentinelReview(input)
-    const { providerUsage, ...sentinelReview } = sentinelReviewResult
+    const { providerUsage, ...reviewOutput } = sentinelReviewResult
+    const sentinelReview = {
+      ...reviewOutput,
+      policyVersion: SENTINEL_REVIEW_POLICY_VERSION,
+    }
 
     // Save to aiOutput.sentinelReview
     const reviewedAt = typeof sentinelReview.reviewedAt === 'string'
@@ -292,25 +307,27 @@ export async function POST(req: NextRequest, props: Params) {
       },
     }).catch(() => {})
 
-    const finalization = await finalizeCreditDeduction({
-      userId,
-      action: 'SENTINEL_REVIEW',
-      deduction: credit,
-      providerEconomics: providerUsage
-        ? {
-            providerCostUsd: providerUsage.estimatedProviderCostUsd,
-            providerPricingVersion: providerUsage.pricingVersion,
-            providerUsage,
-          }
-        : undefined,
-    })
-    if (!finalization.ok) {
-      chargedCredit = null
-      return NextResponse.json({
-        error: 'Sentinel review could not be finalized. Reserved credits were returned.',
-        code: 'CREDIT_FINALIZATION_FAILED',
-        refunded: finalization.refundStatus === 'refunded',
-      }, { status: 503 })
+    if (credit) {
+      const finalization = await finalizeCreditDeduction({
+        userId,
+        action: 'SENTINEL_REVIEW',
+        deduction: credit,
+        providerEconomics: providerUsage
+          ? {
+              providerCostUsd: providerUsage.estimatedProviderCostUsd,
+              providerPricingVersion: providerUsage.pricingVersion,
+              providerUsage,
+            }
+          : undefined,
+      })
+      if (!finalization.ok) {
+        chargedCredit = null
+        return NextResponse.json({
+          error: 'Sentinel review could not be finalized. Reserved credits were returned.',
+          code: 'CREDIT_FINALIZATION_FAILED',
+          refunded: finalization.refundStatus === 'refunded',
+        }, { status: 503 })
+      }
     }
     chargedCredit = null
 
@@ -321,11 +338,13 @@ export async function POST(req: NextRequest, props: Params) {
       strategyContract,
       safeCorrectionsApplied,
       campaignUpdatedAt: updatedCampaign.updatedAt.toISOString(),
-      creditsRemaining: credit.creditsRemaining,
-      creditsUsed: credit.creditsUsed,
+      ...(credit ? { creditsRemaining: credit.creditsRemaining } : {}),
+      creditsUsed: credit?.creditsUsed ?? 0,
+      complimentaryPolicyUpgradeRetry,
       creditCharge: {
         ...getCreditActionPolicy('SENTINEL_REVIEW'),
-        creditsUsed: credit.creditsUsed,
+        creditsUsed: credit?.creditsUsed ?? 0,
+        complimentaryPolicyUpgradeRetry,
       },
     })
   } catch (err: any) {

@@ -1,4 +1,5 @@
 import { resolveStrategyScope, type StrategyScopeType } from '@/lib/strategy/strategyScope'
+import { isCurrentSentinelReview } from '@/lib/sentinelReviewPolicy'
 
 export interface CampaignPortfolioSummary {
   strategyType: StrategyScopeType | null
@@ -37,9 +38,9 @@ export function buildCampaignPortfolioSummary(aiOutput: unknown): CampaignPortfo
         : rawLanguage === 'bilingual' || rawLanguage === 'both'
           ? 'bilingual'
           : null,
-    qualityState: sentinel.status === 'passed'
+    qualityState: isCurrentSentinelReview(sentinel) && sentinel.status === 'passed'
       ? 'passed'
-      : sentinel.status === 'needs_attention'
+      : isCurrentSentinelReview(sentinel) && sentinel.status === 'needs_attention'
         ? 'needs_attention'
         : 'not_reviewed',
     deliveryState: fulfillment.status === 'partial'

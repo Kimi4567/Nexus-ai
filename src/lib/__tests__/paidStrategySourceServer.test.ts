@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { SENTINEL_REVIEW_POLICY_VERSION } from '@/lib/sentinelReviewPolicy'
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
@@ -31,7 +32,7 @@ const payload = buildStrategyApprovalSnapshotPayload({
       strategyType: 'paid',
       strategy: { positioning: 'Approved positioning' },
       qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
-      sentinelReview: { status: 'passed' },
+      sentinelReview: { status: 'passed', policyVersion: SENTINEL_REVIEW_POLICY_VERSION },
     },
   },
 })

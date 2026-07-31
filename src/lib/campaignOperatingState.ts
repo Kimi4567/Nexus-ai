@@ -1,6 +1,7 @@
 import { isPersistedMarketingQualityGatePassed } from './ai/marketingQualityGate'
 import { normalizeCampaignPlatforms } from './campaignPlatforms'
 import { deriveContentLifecycleTruth } from './contentLifecycleTruth'
+import { isCurrentSentinelReview } from './sentinelReviewPolicy'
 
 export type CampaignStatusLike =
   | 'DRAFT'
@@ -281,6 +282,7 @@ function strategyReviewPassed(aiOutput: unknown): boolean {
   if (!isRecord(aiOutput)) return false
   const review = aiOutput.sentinelReview
   return isRecord(review)
+    && isCurrentSentinelReview(review)
     && review.status === 'passed'
     && isPersistedMarketingQualityGatePassed(aiOutput.qualityGate)
 }

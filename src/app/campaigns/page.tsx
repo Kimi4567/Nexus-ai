@@ -13,6 +13,7 @@ import { reviewBrandTruthConsistency } from '@/lib/ai/marketingQualityGate'
 import { hasBrandTruthVerificationFailure, isBrandTruthExecutionLocked } from '@/lib/brandTruthGate'
 import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 import type { CampaignPortfolioSummary } from '@/lib/campaignPortfolioSummary'
+import { isCurrentSentinelReview } from '@/lib/sentinelReviewPolicy'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
@@ -71,7 +72,10 @@ function campaignWorkflowStage(campaign: Campaign, ar: boolean, brandTruthLocked
   }
   const output = jsonRecord(campaign.aiOutput)
   const sentinel = jsonRecord(output.sentinelReview)
-  if (campaign.strategySummary?.qualityState === 'needs_attention' || sentinel.status === 'needs_attention') return ar ? 'مراجعة الجودة مطلوبة' : 'Quality review required'
+  if (
+    campaign.strategySummary?.qualityState === 'needs_attention'
+    || (Boolean(sentinel.status) && !isCurrentSentinelReview(sentinel))
+  ) return ar ? 'مراجعة الجودة مطلوبة' : 'Quality review required'
   const workflow = campaign.workflowSummary
   if (campaign.status !== 'ACTIVE') {
     if (campaign.status === 'DRAFT') return ar ? 'اعتماد الاستراتيجية مطلوب' : 'Strategy approval required'

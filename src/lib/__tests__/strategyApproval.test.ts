@@ -4,6 +4,7 @@ import {
   canMutateCampaignExecution,
   hasApprovedStrategyExecutionStatus,
 } from '@/lib/strategyApproval'
+import { SENTINEL_REVIEW_POLICY_VERSION } from '@/lib/sentinelReviewPolicy'
 
 function campaign(overrides: Record<string, unknown> = {}) {
   return {
@@ -16,7 +17,7 @@ function campaign(overrides: Record<string, unknown> = {}) {
     aiOutput: {
       strategy: { positioning: 'Automation with control', contentPillars: ['Proof', 'Education'] },
       qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
-      sentinelReview: { status: 'passed' },
+      sentinelReview: { status: 'passed', policyVersion: SENTINEL_REVIEW_POLICY_VERSION },
     },
     updatedAt: '2026-07-12T10:00:00.000Z',
     ...overrides,
@@ -58,12 +59,30 @@ describe('strategy approval contract', () => {
     expect(result.approvalBlockers[0]?.code).toBe('SENTINEL_REVIEW_REQUIRED')
   })
 
+  it('requires a new review when Sentinel passed under an older policy', () => {
+    const result = buildStrategyApprovalContract({
+      campaign: campaign({
+        aiOutput: {
+          strategy: { positioning: 'Clear' },
+          qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
+          sentinelReview: { status: 'passed' },
+        },
+      }),
+    })
+
+    expect(result.state).toBe('blocked')
+    expect(result.operatingBrief.sentinelStatus).toBe('not_run')
+    expect(result.approvalBlockers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'SENTINEL_REVIEW_REQUIRED' }),
+    ]))
+  })
+
   it('requires the deterministic marketing quality gate before Sentinel or approval', () => {
     const result = buildStrategyApprovalContract({
       campaign: campaign({
         aiOutput: {
           strategy: { positioning: 'Clear' },
-          sentinelReview: { status: 'passed' },
+          sentinelReview: { status: 'passed', policyVersion: SENTINEL_REVIEW_POLICY_VERSION },
         },
       }),
     })
@@ -98,7 +117,7 @@ describe('strategy approval contract', () => {
         status: 'ACTIVE',
         aiOutput: {
           strategy: { positioning: 'Legacy direction' },
-          sentinelReview: { status: 'passed' },
+          sentinelReview: { status: 'passed', policyVersion: SENTINEL_REVIEW_POLICY_VERSION },
         },
       }),
       latestDecision: {

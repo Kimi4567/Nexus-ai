@@ -29,6 +29,7 @@ import {
 import UpgradeModal from '@/components/UpgradeModal'
 import { creditOperationScope, fetchCreditOperation } from '@/lib/creditOperationClient'
 import WorkspaceRouteLoading from '@/components/WorkspaceRouteLoading'
+import { isCurrentSentinelReview } from '@/lib/sentinelReviewPolicy'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -633,6 +634,7 @@ export default function CreativeBriefPage() {
     }
     const qualityGate = campaign.aiOutput?.qualityGate
     const strategyApprovedForCreative = campaign.status === 'ACTIVE'
+      && isCurrentSentinelReview(campaign.aiOutput?.sentinelReview)
       && campaign.aiOutput?.sentinelReview?.status === 'passed'
       && qualityGate?.schemaVersion === 1
       && qualityGate?.status === 'passed'
@@ -726,6 +728,7 @@ export default function CreativeBriefPage() {
   const hasStrategy = !!(campaign.aiOutput?.strategy)
   const qualityGate = campaign.aiOutput?.qualityGate
   const strategyApprovedForCreative = campaign.status === 'ACTIVE'
+    && isCurrentSentinelReview(campaign.aiOutput?.sentinelReview)
     && campaign.aiOutput?.sentinelReview?.status === 'passed'
     && qualityGate?.schemaVersion === 1
     && qualityGate?.status === 'passed'

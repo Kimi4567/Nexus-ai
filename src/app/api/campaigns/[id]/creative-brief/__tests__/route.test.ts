@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SENTINEL_REVIEW_POLICY_VERSION } from '@/lib/sentinelReviewPolicy'
 
 const {
   mockGetServerUserId,
@@ -71,7 +72,7 @@ const campaign = {
     strategy: { keyMessage: 'A clear offer' },
     language: 'en',
     qualityGate: { schemaVersion: 1, status: 'passed', blockers: [] },
-    sentinelReview: { status: 'passed' },
+    sentinelReview: { status: 'passed', policyVersion: SENTINEL_REVIEW_POLICY_VERSION },
   },
   workspace: { brandProfile: { brandName: 'Nexus', industry: 'SaaS' } },
 }
