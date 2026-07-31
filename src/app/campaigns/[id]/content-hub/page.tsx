@@ -4045,6 +4045,8 @@ export default function ContentHubPage() {
               isGeneratingVideo={generatingVideoId === post.id || (post.isVideoPost && post.generationStatus === 'GENERATING')}
               isRepairingVideo={repairingVideoId === post.id}
               imageGenerationLocked={imageGenerationLocked}
+              imageDailyCapReached={imageDailyCapReached}
+              imageDailyCapReachedLabel={imageDailyCapReachedLabel}
               videoGenerationLocked={videoGenerationLocked}
               imageGenerationBlockedByTruthReview={strategyApprovalRequired || contentIssuesByPostId.has(post.id)}
               imageGenerationTruthReviewLabel={strategyApprovalRequired
@@ -6292,6 +6294,8 @@ interface PostCardProps {
   isGeneratingVideo: boolean
   isRepairingVideo: boolean
   imageGenerationLocked: boolean
+  imageDailyCapReached: boolean
+  imageDailyCapReachedLabel: string
   videoGenerationLocked: boolean
   imageGenerationBlockedByTruthReview: boolean
   imageGenerationTruthReviewLabel: string
@@ -6332,6 +6336,8 @@ function PostCard({
   isGeneratingVideo,
   isRepairingVideo,
   imageGenerationLocked,
+  imageDailyCapReached,
+  imageDailyCapReachedLabel,
   videoGenerationLocked,
   imageGenerationBlockedByTruthReview,
   imageGenerationTruthReviewLabel,
@@ -6896,19 +6902,26 @@ function PostCard({
         ) : (
           <button
             onClick={imageGenerationLocked ? onAddCredits : onGenerateImage}
-            disabled={isGeneratingImage || creditRestorationPending || imageGenerationBlockedByTruthReview}
+            disabled={isGeneratingImage || creditRestorationPending || imageGenerationBlockedByTruthReview || imageDailyCapReached}
             title={creditRestorationPending
               ? (isAr ? 'لن يبدأ خصم جديد حتى اكتمال استرداد المحاولة السابقة.' : 'A new charge is blocked until the previous credit restoration completes.')
               : imageGenerationBlockedByTruthReview ? imageGenerationTruthReviewLabel
+              : imageDailyCapReached ? imageDailyCapReachedLabel
               : imageGenerationLocked ? addCreditsForImagesLabel : `Generate image · ${CONTENT_HUB_IMAGE_COST} credits · failed generations are refunded`}
             className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug transition-all flex items-center justify-center gap-1"
-            style={{ borderColor: 'rgba(15,23,42,0.08)', color: imageGenerationBlockedByTruthReview ? '#64748B' : imageGenerationLocked ? '#B91C1C' : isGeneratingImage ? '#8B5CF6' : '#5E5CE6', background: imageGenerationBlockedByTruthReview ? '#F8FAFC' : imageGenerationLocked ? '#FEF2F2' : undefined }}
+            style={{ borderColor: 'rgba(15,23,42,0.08)', color: imageGenerationBlockedByTruthReview || imageDailyCapReached ? '#64748B' : imageGenerationLocked ? '#B91C1C' : isGeneratingImage ? '#8B5CF6' : '#5E5CE6', background: imageGenerationBlockedByTruthReview || imageDailyCapReached ? '#F8FAFC' : imageGenerationLocked ? '#FEF2F2' : undefined }}
           >
             {creditRestorationPending
               ? <>↻ {isAr ? 'مصالحة الكريديت' : 'Reconciling credit'}</>
               : isGeneratingImage
               ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />{t('contentHub.gen')}</>
-              : <>🎨 {imageGenerationBlockedByTruthReview ? imageGenerationTruthReviewLabel : imageGenerationLocked ? addCreditsForImagesLabel : t('contentHub.generateImageShort')}</>
+              : <>🎨 {imageGenerationBlockedByTruthReview
+                ? imageGenerationTruthReviewLabel
+                : imageDailyCapReached
+                  ? (isAr ? 'اكتمل حد الصور اليومي' : 'Daily image limit reached')
+                  : imageGenerationLocked
+                    ? addCreditsForImagesLabel
+                    : t('contentHub.generateImageShort')}</>
             }
           </button>
         )}

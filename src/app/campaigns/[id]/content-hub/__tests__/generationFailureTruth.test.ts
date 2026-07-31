@@ -30,4 +30,12 @@ describe('Content Hub — generation failure truth', () => {
     expect(SRC).toMatch(/Credits were restored\./)
     expect(SRC).toMatch(/role="alert" className="mt-4 rounded-xl border border-rose-200/)
   })
+
+  it('shows and disables the per-post image action when daily capacity is exhausted', () => {
+    expect(SRC).toMatch(/imageDailyCapReached=\{imageDailyCapReached\}/)
+    expect(SRC).toMatch(/imageDailyCapReachedLabel=\{imageDailyCapReachedLabel\}/)
+    expect(SRC).toMatch(/disabled=\{isGeneratingImage \|\| creditRestorationPending \|\| imageGenerationBlockedByTruthReview \|\| imageDailyCapReached\}/)
+    expect(SRC).toMatch(/imageDailyCapReached \? imageDailyCapReachedLabel/)
+    expect(SRC).toMatch(/اكتمل حد الصور اليومي/)
+  })
 })
