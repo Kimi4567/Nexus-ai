@@ -3,6 +3,7 @@ import {
   ensureContentPlanConversionHandoff,
   validateContentPlanSemanticAlignment,
 } from '@/lib/contentPlanSemanticGuard'
+import { guardContentDraftTruth } from '@/lib/ai/contentDraftTruthGuard'
 
 const dentalStrategy = {
   keyMessage: 'Make the first dental consultation easier to understand',
@@ -95,6 +96,33 @@ describe('contentPlanSemanticGuard', () => {
     expect(posts[2].caption).toContain('واتساب أو تقويم المبيعات')
     expect(validateContentPlanSemanticAlignment(posts, strategy, {
       brandFacts: ['منصة لإدارة الفواتير والتدفق النقدي'],
+      conversionDestination,
+    }).issues.map(issue => issue.reason)).not.toContain('missing_conversion_handoff')
+  })
+
+  it('preserves an Arabic NEXUS landing-page consent form as a valid handoff', () => {
+    const conversionDestination = 'صفحة هبوط داخل NEXUS مع نموذج موافقة صريح'
+    const strategy = {
+      contentAnglesDetailed: [
+        { title: 'مراجعة المسودات', funnelStage: 'awareness' },
+        { title: 'تنظيم الأصول', funnelStage: 'consideration' },
+        { title: 'خطوة المراجعة التالية', funnelStage: 'conversion' },
+      ],
+    }
+    const posts = guardContentDraftTruth(ensureContentPlanConversionHandoff([
+      { contentPlanIndex: 1, caption: 'راجع مسودات المحتوى العقاري.' },
+      { contentPlanIndex: 2, caption: 'نظّم الأصول العقارية المعتمدة.' },
+      { contentPlanIndex: 3, caption: 'اختر خطوة المراجعة التالية.' },
+    ], strategy, conversionDestination), {
+      hasConversionDestination: true,
+      brandFacts: ['Aster Property Marketing', conversionDestination],
+      verifiedProof: [],
+    })
+
+    expect(posts[2].caption).toContain('صفحة الهبوط')
+    expect(posts[2].caption).toContain('نموذج الموافقة')
+    expect(validateContentPlanSemanticAlignment(posts, strategy, {
+      brandFacts: ['Aster Property Marketing', 'مسودات حملات عقارية قابلة للمراجعة'],
       conversionDestination,
     }).issues.map(issue => issue.reason)).not.toContain('missing_conversion_handoff')
   })

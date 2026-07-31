@@ -134,8 +134,13 @@ function buildGroundedConversionCta(destination: string): string {
     parts.push('احجز Demo عبر نموذج صفحة الهبوط')
   } else if (/تجربة/iu.test(destination)) {
     parts.push('ابدأ التجربة الموضحة في العرض')
+  } else if (/نموذج/iu.test(destination) && /صفحة\s+هبوط/iu.test(destination)) {
+    // Keep the exact grounded nouns from Brand Brain. Using "النموذج" here
+    // previously failed the token-level verifier when the saved destination
+    // contained "نموذج", so a valid Arabic landing-page handoff was refunded.
+    parts.push('تابع عبر صفحة الهبوط وأرسل نموذج الموافقة')
   } else if (/نموذج/iu.test(destination)) {
-    parts.push('أرسل النموذج المعتمد')
+    parts.push('أرسل نموذج الموافقة')
   }
   if (/واتساب/iu.test(destination) && /تقويم/iu.test(destination)) {
     parts.push('ثم اختر واتساب أو تقويم المبيعات للمتابعة')
