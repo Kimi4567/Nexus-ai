@@ -95,6 +95,35 @@ describe('detectUnsupportedClaims (PR-1K)', () => {
     expect(cats('Cut costs across your team')).toContain('performance')
   })
 
+  it('flags unsupported Arabic inquiry and campaign-effectiveness claims', () => {
+    const result = detectUnsupportedClaims([
+      'اكتشف كيف يمكن لحملاتنا تحسين استفساراتك.',
+      'تحويل صور العقارات المعتمدة إلى حملات محتوى فعالة.',
+      'اجعل حملاتك العقارية أكثر فعالية.',
+      'حملات عقارية موثوقة تعتمد على بياناتك.',
+    ])
+
+    expect(result.findings.map(f => f.category)).toEqual(
+      expect.arrayContaining(['performance', 'guarantee']),
+    )
+    expect(result.findings.map(f => f.match)).toEqual(
+      expect.arrayContaining([
+        'تحسين استفساراتك',
+        'حملات محتوى فعالة',
+        'أكثر فعالية',
+        'حملات عقارية موثوقة',
+      ]),
+    )
+  })
+
+  it('does not flag the same Arabic claim words inside explicit safety guidance', () => {
+    expect(detectUnsupportedClaims([
+      'لا تدعي أن حملاتك العقارية أكثر فعالية.',
+      'تجنب استخدام عبارة حملات عقارية موثوقة دون دليل.',
+      'عدم استخدام عبارة حملات محتوى فعالة قبل التحقق.',
+    ]).hasUnsupportedClaims).toBe(false)
+  })
+
   // ── Safe soft claims must NOT be flagged ──────────────────────────────────────
   it('allows "Designed to help teams save time"', () => {
     const r = detectUnsupportedClaims('Designed to help teams save time')

@@ -45,6 +45,17 @@ const PATTERNS: { category: ClaimCategory; re: RegExp }[] = [
   { category: 'multiplier', re: /\b\d+\s+times\s+(?:faster|more|better|higher|stronger|cheaper)\b/gi },
   // Hard commercial-outcome verbs paired with a money/growth metric.
   { category: 'performance', re: /\b(?:boost|increase|grow|double|triple|skyrocket|maximi[sz]e|cut|slash|reduce)\s+(?:your\s+)?(?:sales|revenue|profits?|roi|conversions?|leads?|traffic|income|costs?)\b/gi },
+  // Arabic commercial-outcome and effectiveness claims. These deliberately
+  // require either a measurable marketing outcome or customer-facing
+  // "effective campaign/content" wording, so ordinary process improvements do
+  // not become false positives.
+  { category: 'performance', re: /(?:تحسين|زيادة|رفع|تعزيز|تنمية|مضاعفة)\s+(?:عدد\s+|جودة\s+)?(?:الاستفسارات|استفسارات(?:ك|كم)?|المبيعات|الإيرادات|الأرباح|التحويلات|العملاء\s+المحتملين|الزيارات|التفاعل|الوصول)(?=\s|[،,.!?؟]|$)/giu },
+  { category: 'performance', re: /(?:أكثر|أعلى|عالية)\s+(?:فعالية|فاعلية)(?=\s|[،,.!?؟]|$)/giu },
+  { category: 'performance', re: /(?:حملات?|محتوى|إعلانات?|استراتيجيات?|خطط)\s+(?:[\p{L}\p{M}]+\s+){0,4}(?:فعالة|فعّالة)(?=\s|[،,.!?؟]|$)/giu },
+  // Reliability language is a proof claim when applied to a campaign itself.
+  // "Based on approved data" is a process fact; calling the resulting campaign
+  // trustworthy/reliable still needs evidence or more precise wording.
+  { category: 'guarantee', re: /حملات?\s+(?:[\p{L}\p{M}]+\s+){0,4}موثوقة(?=\s|[،,.!?؟]|$)/giu },
   // Guarantees / proof language.
   { category: 'guarantee', re: /\b(?:guarantee[ds]?|guaranteed\s+results|proven\s+results|proven\s+to|risk[-\s]?free|will\s+deliver(?:\s+results)?|100%\s+guaranteed)\b/gi },
   // Arabic guarantee verbs must be standalone words. Without these Unicode
@@ -96,7 +107,7 @@ export function hasNegatingSafetyContext(
   // results" is still advertising copy, while "do not use guaranteed results"
   // is an internal instruction and must not block the campaign.
   const englishSafety = /(?:\b(?:do\s+not|don't|never|avoid|must\s+not|should\s+not)(?:\s+(?:promise|claim|state|imply|use|offer|make|present|suggest|write|mention))?(?:\s+(?:any\s+)?(?:words?|phrases?|language)(?:\s+(?:like|such\s+as))?)?|\bwithout\s+(?:promising|claiming|stating|implying|using|offering|presenting|suggesting|writing|mentioning)|\b(?:cannot|can't)(?:\s+(?:promise|claim|state|imply|use|offer|make|present|suggest))?|\b(?:is|are)\s+not|\bnot|\bno)$/i
-  const arabicSafety = /(?:(?:عدم|ممنوع)(?:\s+(?:استخدام|استعمال|ذكر|كتابة|قول|الوعد|الادعاء|تقديم|عرض))?(?:\s+(?:كلمة|كلمات|عبارة|عبارات)(?:\s+(?:مثل|من\s+قبيل))?)?|(?:تجنب|تجنّب|يجب\s+(?:الا|ألا)|لا|لن|لم|ليس|غير|بدون)(?:\s*(?:تعد|تدعي|تستخدم|تستعمل|تقدم|توحي|تذكر|تكتب|تقول|نعد|ندعي|نستخدم|نقدم|نوحي|نذكر|نكتب|نقول))?(?:\s+(?:انك|أنك|بأنك|باننا|بأننا|اننا|أننا))?)$/iu
+  const arabicSafety = /(?:(?:عدم|ممنوع)(?:\s+(?:استخدام|استعمال|ذكر|كتابة|قول|الوعد|الادعاء|تقديم|عرض))?(?:\s+(?:كلمة|كلمات|عبارة|عبارات)(?:\s+(?:مثل|من\s+قبيل))?)?|(?:تجنب|تجنّب|يجب\s+(?:الا|ألا)|لا|لن|لم|ليس|غير|بدون)(?:\s*(?:تعد|تدعي|تستخدم|تستعمل|تقدم|توحي|تذكر|تكتب|تقول|نعد|ندعي|نستخدم|نقدم|نوحي|نذكر|نكتب|نقول|استخدام|استعمال|ذكر|كتابة|قول|تقديم|عرض))?(?:\s+(?:انك|أنك|بأنك|باننا|بأننا|اننا|أننا))?)$/iu
 
   if (englishSafety.test(before) || arabicSafety.test(before)) return true
 
@@ -114,7 +125,7 @@ export function hasNegatingSafetyContext(
   const hasContrast = /\b(?:but|however|instead)\b|(?:لكن|ولكن|بل)/iu.test(clause)
   if (hasContrast) return false
   const englishListDirective = /\b(?:do\s+not|don't|never|avoid|must\s+not|should\s+not)\s+(?:promise|claim|state|imply|use|offer|make|present|suggest|write|mention)\b/i
-  const arabicListDirective = /(?:عدم|ممنوع)\s+(?:استخدام|استعمال|ذكر|كتابة|قول|الوعد|الادعاء|تقديم|عرض)(?![\p{L}\p{M}])|(?:تجنب|تجنّب|يجب\s+(?:الا|ألا)|لا|لن|لم)\s*(?:تعد|تدعي|تستخدم|تستعمل|تقدم|توحي|تذكر|تكتب|تقول)(?![\p{L}\p{M}])/iu
+  const arabicListDirective = /(?:عدم|ممنوع)\s+(?:استخدام|استعمال|ذكر|كتابة|قول|الوعد|الادعاء|تقديم|عرض)(?![\p{L}\p{M}])|(?:تجنب|تجنّب|يجب\s+(?:الا|ألا)|لا|لن|لم)\s*(?:تعد|تدعي|تستخدم|تستعمل|تقدم|توحي|تذكر|تكتب|تقول|استخدام|استعمال|ذكر|كتابة|قول|تقديم|عرض)(?![\p{L}\p{M}])/iu
   return englishListDirective.test(clause) || arabicListDirective.test(clause)
 }
 

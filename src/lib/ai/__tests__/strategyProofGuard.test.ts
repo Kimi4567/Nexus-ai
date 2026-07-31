@@ -4,6 +4,29 @@ import path from 'path'
 import { buildProofPolicyPrompt, guardStrategyProof, guardStrategyProofText } from '../strategyProofGuard'
 
 describe('strategyProofGuard', () => {
+  it('repairs unsupported Arabic real-estate performance copy into reviewable process language', () => {
+    const guarded = guardStrategyProof({
+      keyMessage: 'تحويل صور العقارات المعتمدة إلى حملات محتوى فعالة.',
+      topHooks: [
+        'اكتشف كيف يمكن لحملاتنا تحسين استفساراتك.',
+        'اجعل حملاتك العقارية أكثر فعالية.',
+        'حملات عقارية موثوقة تعتمد على بياناتك.',
+      ],
+      audienceSegmentsDetailed: [
+        { message: 'نحن نوفر حملات موثوقة تعتمد على بياناتك المعتمدة.' },
+        { message: 'نحن نوفر حلولاً متكاملة لإدارة حملاتك.' },
+      ],
+    }, { verifiedProof: [], allowedClaimText: [] })
+
+    const joined = JSON.stringify(guarded)
+    expect(joined).toContain('مسودات حملات محتوى قابلة للمراجعة')
+    expect(joined).toContain('راجع كيف تُدار صورك ورسائلك في حملة واحدة')
+    expect(joined).toContain('اجعل حملاتك العقارية أسهل في المراجعة')
+    expect(joined).toContain('مبنية على بياناتك المعتمدة وقابلة للمراجعة')
+    expect(joined).toContain('مساراً واحداً لتخطيط المحتوى ومراجعته داخل NEXUS')
+    expect(joined).not.toMatch(/تحسين استفساراتك|محتوى فعالة|أكثر فعالية|حملات عقارية موثوقة|حلولاً متكاملة/)
+  })
+
   it('repairs unsupported legacy positioning and awkward claim-softening leftovers', () => {
     const guarded = guardStrategyProof({
       positioning: 'Noura is the premium dental clinic for local professionals.',
