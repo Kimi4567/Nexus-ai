@@ -1634,11 +1634,11 @@ export default function ContentHubPage() {
     : `Generate ${pendingImageCount} post images — ${bulkImageCreditCost} credits total`
   const approveDraftsLabel = draftMediaDecisionCount > 0
     ? (isAr
-        ? `أكمل وسائط ${draftMediaDecisionCount} منشورات أولاً`
-        : `Complete media for ${draftMediaDecisionCount} post${draftMediaDecisionCount === 1 ? '' : 's'} first`)
+        ? `اعتمد النصوص فقط · ${draftMediaDecisionCount} وسائط لاحقاً`
+        : `Approve copy only · ${draftMediaDecisionCount} media later`)
     : (isAr
-        ? `اعتمد الحزمة وسجّل جدول ${draftCount} منشورات`
-        : `Approve package and schedule ${draftCount} post${draftCount === 1 ? '' : 's'}`)
+        ? `اعتمد نصوص ${draftCount} منشورات فقط`
+        : `Approve copy for ${draftCount} post${draftCount === 1 ? '' : 's'} only`)
   const scheduleApprovedLabel = isAr
     ? schedulingBlockedByTruthReview
       ? 'راجع جودة النصوص قبل الجدولة'
@@ -2125,7 +2125,7 @@ export default function ContentHubPage() {
     await generateAllImages()
   }
 
-  // ── Approve the complete review package → internal manual schedule ───────────
+  // ── Approve copy only; media approval and scheduling stay separate ───────────
 
   async function approveAll() {
     if (!isAuthenticated) return
@@ -2141,25 +2141,6 @@ export default function ContentHubPage() {
       setShowApproveConfirm(false)
       return
     }
-    if (draftMediaDecisionCount > 0) {
-      setError(isAr
-        ? `أكمل وسائط ${draftMediaDecisionCount} منشورات قبل اعتماد الحزمة. لم يُحفظ أي قرار.`
-        : `Complete media for ${draftMediaDecisionCount} post${draftMediaDecisionCount === 1 ? '' : 's'} before package approval. No decision was saved.`)
-      setShowApproveConfirm(false)
-      document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      return
-    }
-    if (packageScheduleDateIssues.length > 0) {
-      setError(isAr
-        ? 'راجع تاريخ ووقت كل منشور داخل الحزمة. يجب أن تكون كل المواعيد صالحة وفي المستقبل.'
-        : 'Review every post date and time in the package. Every date must be valid and in the future.')
-      return
-    }
-    if (packageWeakMediaApprovalRisks.length > 0 && !weakMediaApprovalAcknowledged) return
-
-    const reviewedScheduleByPostId = Object.fromEntries(
-      reviewedPackageScheduleDates.map(item => [item.post.id, item.iso!]),
-    )
     setApproving(true)
     setError(null)
     setSuccessMsg(null)
@@ -2170,90 +2151,48 @@ export default function ContentHubPage() {
           id: post.id,
           caption: post.caption,
           imageUrl: post.imageUrl,
-          scheduledAt: reviewedScheduleByPostId[post.id],
         })),
       })
       const res = await fetchCreditOperation(
-        creditOperationScope('campaign:content-package-approval', commandIdentity),
-        `/api/campaigns/${campaignId}/approve-content-package`,
+        creditOperationScope('campaign:content-copy-approval', commandIdentity),
+        `/api/campaigns/${campaignId}/approve-content-plan`,
         {
         method: 'POST',
         headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          consent: {
-            authorized: true,
-            publishMode: 'MANUAL',
-            scheduledAtByPostId: reviewedScheduleByPostId,
-            explicitWeakMediaApprovalConfirmed:
-              packageWeakMediaApprovalRisks.length > 0 && weakMediaApprovalAcknowledged,
-          },
-        }),
+        body: JSON.stringify({ mode: 'approve' }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const freshPosts = (data.contentApprovalRecorded || data.mediaApprovalRecorded)
-          ? await loadData()
-          : posts
-        const scheduledAfterRecovery = freshPosts.filter(
-          post => post.status === 'SCHEDULED' && hasValidDate(post.scheduledAt),
-        )
-        const scheduledAfterRecoveryIds = new Set(scheduledAfterRecovery.map(post => post.id))
-        if (
-          draftPosts.length > 0
-          && draftPosts.every(post => scheduledAfterRecoveryIds.has(post.id))
-        ) {
-          setShowApproveConfirm(false)
-          setWeakMediaApprovalAcknowledged(false)
-          setSuccessMsg(isAr
-            ? 'تم حفظ اعتماد الحزمة والجدول الداخلي. انقطع رد المتصفح ثم تحقق NEXUS من الحالة المحفوظة. لم يتم النشر أو الإنفاق.'
-            : 'Package approval and the internal schedule were saved. The browser response was interrupted, then NEXUS verified the saved state. Nothing was published or spent.')
-          return
-        }
-        const partialMessage = data.failedStage === 'MEDIA_APPROVAL'
-          ? (isAr
-              ? 'تم حفظ اعتماد النصوص، لكن قرار الوسائط يحتاج مراجعة. لم تُسجّل الجدولة ولم يتم النشر أو الإنفاق.'
-              : 'Copy approval was saved, but media needs review. No schedule, publishing, or spend was recorded.')
-          : data.failedStage === 'SCHEDULE'
-            ? (isAr
-                ? 'تم حفظ اعتماد النصوص والوسائط، لكن الجدول يحتاج مراجعة. لم يتم النشر أو الإنفاق.'
-                : 'Copy and media approvals were saved, but the schedule needs review. Nothing was published or spent.')
-            : ''
-        if (partialMessage) {
-          setShowApproveConfirm(false)
-          setWeakMediaApprovalAcknowledged(false)
-        }
-        throw new Error(partialMessage || data.message || data.error || (isAr
-          ? 'تعذّر اعتماد الحزمة. لم يتم النشر أو الإنفاق.'
-          : 'Package approval failed. Nothing was published or spent.'))
+        throw new Error(data.message || data.error || (isAr
+          ? 'تعذّر اعتماد النصوص. لم تتم الجدولة أو النشر أو اعتماد الوسائط.'
+          : 'Copy approval failed. Nothing was scheduled, published, or media-approved.'))
       }
 
       const freshPosts = await loadData()
-      const scheduledPosts = freshPosts.filter(
-        post => post.status === 'SCHEDULED' && hasValidDate(post.scheduledAt),
-      )
-      const scheduledDates = scheduledPosts.map(post => post.scheduledAt!).sort()
-      const platformsUsed = [...new Set(scheduledPosts.map(post => post.platform.toUpperCase()))]
+      const approvedPostsAfterSave = freshPosts.filter(post => post.status === 'APPROVED')
+      const platformsUsed = [...new Set(approvedPostsAfterSave.map(post => post.platform.toUpperCase()))]
+      const pendingMediaAfterSave = approvedPostsAfterSave.filter(post => !deriveContentHubMediaState(post).countsAsReady)
 
       setApproveResult({
-        kind: 'scheduled',
-        approved: data.scheduled ?? scheduledPosts.length,
+        kind: 'approved',
+        approved: data.approved ?? approvedPostsAfterSave.length,
         linked: 0,
-        unlinked: 0,
+        unlinked: data.unlinked ?? 0,
         signals: { hooks: 0, angles: 0 },
         platforms: platformsUsed,
-        firstDate: scheduledDates[0] ?? null,
-        lastDate:  scheduledDates[scheduledDates.length - 1] ?? null,
-        pendingMedia: 0,
-        totalMedia: scheduledPosts.length,
-        pendingImages: 0,
-        totalImages: scheduledPosts.filter(post => !post.isVideoPost).length,
-        videoSlots: scheduledPosts.filter(post => post.isVideoPost).length,
+        firstDate: null,
+        lastDate: null,
+        pendingMedia: pendingMediaAfterSave.length,
+        totalMedia: approvedPostsAfterSave.length,
+        pendingImages: pendingMediaAfterSave.filter(post => !post.isVideoPost).length,
+        totalImages: approvedPostsAfterSave.filter(post => !post.isVideoPost).length,
+        videoSlots: approvedPostsAfterSave.filter(post => post.isVideoPost).length,
       })
       setShowApproveConfirm(false)
       setWeakMediaApprovalAcknowledged(false)
       setSuccessMsg(isAr
-        ? 'تم اعتماد النصوص والوسائط وتسجيل الجدول الداخلي. لم يُنشر شيء ولم يُمنح إذن إنفاق.'
-        : 'Copy and media were approved and the internal schedule was recorded. Nothing was published and no spend was authorized.')
+        ? 'تم اعتماد النصوص فقط. الوسائط والجدولة ما زالتا قرارين منفصلين؛ لم يُنشر شيء ولم يُمنح إذن إنفاق.'
+        : 'Copy was approved only. Media approval and scheduling are still separate decisions; nothing was published and no spend was authorized.')
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -3300,9 +3239,9 @@ export default function ContentHubPage() {
                     disabled={approving || approvalBlocked}
                     className="flex max-w-full min-w-0 items-center justify-center gap-2 rounded-xl px-4 py-2 text-center text-sm font-semibold leading-tight transition-all whitespace-normal break-words"
                     style={{
-                      background: draftMediaDecisionCount > 0 ? '#FFFBEB' : '#059669',
-                      color: draftMediaDecisionCount > 0 ? '#92400E' : 'white',
-                      border: draftMediaDecisionCount > 0 ? '1px solid #FDE68A' : '1px solid transparent',
+                      background: '#059669',
+                      color: 'white',
+                      border: '1px solid transparent',
                       opacity: approving || approvalBlocked ? 0.6 : 1,
                     }}
                   >
@@ -4154,7 +4093,7 @@ export default function ContentHubPage() {
           )
         })()}
 
-        {/* ── Unified copy + media + internal schedule approval ────────── */}
+        {/* ── Copy approval only; media and scheduling are separate decisions ── */}
         {showApproveConfirm && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -4173,20 +4112,20 @@ export default function ContentHubPage() {
             >
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4"
                 style={{ background: '#ECFDF5', border: '1px solid rgba(5,150,105,0.18)' }}>
-                📅
+                ✓
               </div>
               <p className="text-xs font-black uppercase tracking-wider text-emerald-700">
-                {isAr ? 'قرار حزمة واحد' : 'One package decision'}
+                {isAr ? 'قرار اعتماد النصوص' : 'Copy approval decision'}
               </p>
               <h3 id="content-package-approval-title" className="mb-2 mt-1 text-lg font-bold text-slate-950">
                 {isAr
-                  ? `اعتماد ${draftCount} منشورات وتسجيل جدولها الداخلي`
-                  : `Approve and internally schedule ${draftCount} post${draftCount === 1 ? '' : 's'}`}
+                  ? `اعتماد نصوص ${draftCount} منشورات فقط`
+                  : `Approve copy for ${draftCount} post${draftCount === 1 ? '' : 's'} only`}
               </h3>
               <p className="mb-5 text-sm leading-6 text-slate-600">
                 {isAr
-                  ? 'سيحفظ NEXUS النسخ والوسائط التي راجعتها، ثم يسجل المواعيد أدناه كخطة تنفيذ داخلية. لا يُرسل أي محتوى إلى منصة.'
-                  : 'NEXUS will save the copy and media you reviewed, then record the dates below as an internal execution plan. Nothing is sent to a platform.'}
+                  ? 'سيحفظ NEXUS نسخة ثابتة من النصوص التي راجعتها فقط. اعتماد الوسائط والجدولة الداخلية سيظهران كخطوتين منفصلتين بعد ذلك.'
+                  : 'NEXUS will save an immutable record of the reviewed copy only. Final media approval and internal scheduling remain separate next steps.'}
               </p>
               <div className={`mb-4 rounded-xl border p-3 text-xs leading-relaxed ${contentApprovalPreflight.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-rose-200 bg-rose-50 text-rose-900'}`}>
                 <p className="font-black">{isAr ? 'فحص الجودة قبل القرار' : 'Quality review before the decision'}</p>
@@ -4198,85 +4137,17 @@ export default function ContentHubPage() {
                 </div>
                 <p className="mt-2 font-semibold">
                   {contentApprovalPreflight.ok
-                    ? (isAr ? 'اجتازت النصوص الفحص، وكل الوسائط الحالية جاهزة لقرار الحزمة.' : 'Copy passed review and all current media is ready for the package decision.')
+                    ? (isAr ? 'اجتازت النصوص الفحص. هذا القرار لا يعتمد الوسائط ولا يسجل جدولاً.' : 'Copy passed review. This decision does not approve media or record a schedule.')
                     : (isAr ? 'الاعتماد مقفل حتى تصبح جميع الأعداد أعلاه صفراً.' : 'Approval stays locked until every risk count above is zero.')}
                 </p>
               </div>
-
-              <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50/70 p-3">
-                <div className="mb-3 flex items-start justify-between gap-3 text-xs">
-                  <div>
-                    <p className="font-black text-indigo-950">{isAr ? 'جدول التنفيذ المقترح' : 'Proposed execution schedule'}</p>
-                    <p className="mt-1 text-indigo-800">
-                      {packageScheduleRange
-                        ? (isAr
-                            ? `${packageScheduleRange.first} — ${packageScheduleRange.last}`
-                            : `${packageScheduleRange.first} — ${packageScheduleRange.last}`)
-                        : (isAr ? 'راجع كل موعد أدناه.' : 'Review every date below.')}
-                    </p>
-                  </div>
-                  <span className="rounded-full border border-indigo-200 bg-white px-2 py-1 font-bold text-indigo-700">
-                    {isAr ? 'داخلي فقط' : 'Internal only'}
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {reviewedPackageScheduleDates.map(({ post, inputValue }) => (
-                    <label key={post.id} className="grid gap-1 rounded-lg border border-indigo-100 bg-white p-2 text-xs sm:grid-cols-[1fr_190px] sm:items-center">
-                      <span className="font-semibold text-slate-700">
-                        {isAr ? `منشور ${post.contentPlanIndex}` : `Post ${post.contentPlanIndex}`}
-                        {' · '}{post.platform}
-                      </span>
-                      <input
-                        type="datetime-local"
-                        value={inputValue}
-                        min={toLocalScheduleInputValue(new Date(Date.now() + 60_000).toISOString())}
-                        onChange={event => setScheduleDateByPostId(current => ({
-                          ...current,
-                          [post.id]: event.target.value,
-                        }))}
-                        className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs text-slate-800 outline-none focus:border-indigo-400"
-                      />
-                    </label>
-                  ))}
-                </div>
-                {packageScheduleDateIssues.length > 0 && (
-                  <p role="alert" className="mt-2 text-xs font-bold text-rose-700">
-                    {isAr
-                      ? 'يوجد موعد ماضٍ أو غير صالح. صححه قبل الاعتماد.'
-                      : 'A date is invalid or in the past. Correct it before approval.'}
-                  </p>
-                )}
-              </div>
-
-              {packageWeakMediaApprovalRisks.length > 0 && (
-                <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
-                  <p className="font-black">
-                    {isAr
-                      ? `${packageWeakMediaApprovalRisks.length} وسائط لها تطابق إبداعي ضعيف`
-                      : `${packageWeakMediaApprovalRisks.length} media item${packageWeakMediaApprovalRisks.length === 1 ? '' : 's'} have a weak creative match`}
-                  </p>
-                  <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-amber-200 bg-white/80 p-2.5 font-semibold">
-                    <input
-                      type="checkbox"
-                      checked={weakMediaApprovalAcknowledged}
-                      onChange={event => setWeakMediaApprovalAcknowledged(event.target.checked)}
-                      className="mt-0.5 h-4 w-4 accent-amber-600"
-                    />
-                    <span>
-                      {isAr
-                        ? 'راجعت تحذير التطابق وأوافق على تسجيل هذه الوسائط كاستثناء موثق.'
-                        : 'I reviewed the match warning and approve this media as a recorded exception.'}
-                    </span>
-                  </label>
-                </div>
-              )}
 
               <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-700">
                 <p className="font-black text-slate-950">{isAr ? 'حدود هذا القرار' : 'Decision boundary'}</p>
                 <p className="mt-1">
                   {isAr
-                    ? 'التكلفة 0 كريديت. لا نشر خارجي، لا تفعيل Autopilot، ولا صرف ميزانية. النشر يحتاج موافقة مستقلة واتصال منصة جاهزًا.'
-                    : 'Cost: 0 credits. No external publishing, Autopilot activation, or budget spend. Publishing requires a separate approval and a ready platform connection.'}
+                    ? 'التكلفة 0 كريديت. لا اعتماد وسائط، لا جدولة، لا نشر خارجي، لا ربط منصة، لا تفعيل Autopilot، ولا صرف ميزانية.'
+                    : 'Cost: 0 credits. No media approval, scheduling, external publishing, platform linking, Autopilot activation, or budget spend.'}
                 </p>
               </div>
               {contentPlanOrderMismatch && (
@@ -4312,16 +4183,11 @@ export default function ContentHubPage() {
                   onClick={() => void approveAll()}
                   disabled={approving
                     || approvalBlocked
-                    || draftMediaDecisionCount > 0
-                    || packageScheduleDateIssues.length > 0
-                    || (packageWeakMediaApprovalRisks.length > 0 && !weakMediaApprovalAcknowledged)}
+                  }
                   className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all flex items-center justify-center gap-2"
                   style={{
                     background: approving
                       || approvalBlocked
-                      || draftMediaDecisionCount > 0
-                      || packageScheduleDateIssues.length > 0
-                      || (packageWeakMediaApprovalRisks.length > 0 && !weakMediaApprovalAcknowledged)
                       ? '#94A3B8'
                       : 'linear-gradient(135deg, #059669, #047857)',
                     opacity: approving ? 0.7 : 1,
@@ -4329,7 +4195,7 @@ export default function ContentHubPage() {
                 >
                   {approving
                     ? (isAr ? 'جارٍ حفظ القرار...' : 'Saving decision...')
-                    : (isAr ? 'اعتماد الحزمة وتسجيل الجدول' : 'Approve package and record schedule')}
+                    : (isAr ? 'اعتماد النصوص فقط' : 'Approve copy only')}
                 </button>
               </div>
             </div>

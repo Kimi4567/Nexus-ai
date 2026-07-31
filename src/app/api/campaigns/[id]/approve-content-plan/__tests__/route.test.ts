@@ -162,6 +162,27 @@ describe('POST approve-content-plan', () => {
     }))
   })
 
+  it('does not bind platform integrations during copy approval', async () => {
+    mocks.integrationFindMany.mockResolvedValueOnce([{
+      id: 'integration-1',
+      type: 'LINKEDIN',
+      accountId: 'page-1',
+      config: { pages: [{ id: 'page-1' }] },
+    }])
+
+    const response = await POST(request(), { params: Promise.resolve({ id: 'campaign-1' }) })
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body).toMatchObject({ success: true, approved: 1, linked: 0, unlinked: 1 })
+    expect(mocks.postUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.not.objectContaining({
+        integrationId: expect.any(String),
+        pageId: expect.any(String),
+      }),
+    }))
+  })
+
   it('rolls back the batch when any reviewed draft changes concurrently', async () => {
     mocks.postUpdateMany.mockResolvedValueOnce({ count: 0 })
 

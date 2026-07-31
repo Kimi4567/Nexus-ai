@@ -7,26 +7,27 @@ const SRC = readFileSync(
   'utf8',
 )
 
-describe('owner content-package approval', () => {
-  it('uses one replay-safe command for copy, media, and the internal schedule', () => {
-    expect(SRC).toContain("creditOperationScope('campaign:content-package-approval'")
-    expect(SRC).toContain('`/api/campaigns/${campaignId}/approve-content-package`')
-    expect(SRC).toContain("publishMode: 'MANUAL'")
-    expect(SRC).toContain('explicitWeakMediaApprovalConfirmed:')
-    expect(SRC).toContain('scheduledAtByPostId: reviewedScheduleByPostId')
+describe('owner content approval workflow', () => {
+  it('approves copy without approving media or recording the schedule', () => {
+    expect(SRC).toContain("creditOperationScope('campaign:content-copy-approval'")
+    expect(SRC).toContain('`/api/campaigns/${campaignId}/approve-content-plan`')
+    expect(SRC).toContain("body: JSON.stringify({ mode: 'approve' })")
+    expect(SRC).toContain('Approve copy only')
+    expect(SRC).toContain('No media approval, scheduling, external publishing, platform linking')
+    expect(SRC).not.toContain("creditOperationScope('campaign:content-package-approval'")
   })
 
-  it('shows exact schedule controls and keeps publishing and spend outside consent', () => {
-    expect(SRC).toContain('type="datetime-local"')
-    expect(SRC).toContain('One package decision')
-    expect(SRC).toContain('Approve package and record schedule')
-    expect(SRC).toContain('No external publishing, Autopilot activation, or budget spend.')
-    expect(SRC).toContain('لم يُنشر شيء ولم يُمنح إذن إنفاق')
+  it('keeps final media approval and scheduling as separate UI decisions', () => {
+    expect(SRC).toContain('Separate media decision')
+    expect(SRC).toContain('Approve media only')
+    expect(SRC).toContain('Separate scheduling decision')
+    expect(SRC).toContain('Confirm scheduling')
+    expect(SRC).toContain('لم تتم الجدولة أو النشر')
   })
 
-  it('blocks a package decision while final media or dates are incomplete', () => {
-    expect(SRC).toContain('draftMediaDecisionCount > 0')
-    expect(SRC).toContain('packageScheduleDateIssues.length > 0')
-    expect(SRC).toContain('packageWeakMediaApprovalRisks.length > 0 && !weakMediaApprovalAcknowledged')
+  it('does not show the old combined package approval language', () => {
+    expect(SRC).not.toContain('Approve package and record schedule')
+    expect(SRC).not.toContain('One package decision')
+    expect(SRC).not.toContain('اعتماد الحزمة وتسجيل الجدول')
   })
 })

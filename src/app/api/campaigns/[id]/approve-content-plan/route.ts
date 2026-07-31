@@ -6,8 +6,8 @@
  * - Default (mode 'approve'):  DRAFT → APPROVED only. Sets approvedAt. Does NOT
  *   schedule and does NOT touch scheduledAt. Scheduling happens later via
  *   POST /api/campaigns/[id]/schedule-content-plan.
- * - Assigns integrationId + pageId per platform (FL2A) so a later schedule/publish
- *   has credentials.
+ * - Does not assign integrationId or pageId. Destination binding belongs to
+ *   schedule/publish readiness after platform permissions and consent.
  * - Records every transition in PostStatusHistory (actor USER).
  * - Creates reviewed learning proposals. Approval alone never writes "winning"
  *   memory because approval is preference, not performance evidence.
@@ -108,25 +108,6 @@ export async function POST(req: NextRequest, props: Params) {
       }, { status: 409 })
     }
 
-    // FL2A: Build platform → integration map so the publish cron has credentials
-    const connectedIntegrations = await prisma.integration.findMany({
-      where: {
-        workspaceId: campaign.workspaceId,
-        status: 'CONNECTED' as any,
-        type: { notIn: ['STRIPE', 'CLOUDINARY', 'GOOGLE', 'SLACK'] as any[] },
-      },
-      select: { id: true, type: true, config: true, accountId: true },
-    })
-
-    const integrationMap: Record<string, { integrationId: string; pageId: string | null }> = {}
-    for (const intg of connectedIntegrations) {
-      const key = String(intg.type)
-      if (integrationMap[key]) continue
-      const pages: any[] = (intg.config as any)?.pages ?? []
-      const pageId: string | null = pages[0]?.id ?? intg.accountId ?? null
-      integrationMap[key] = { integrationId: intg.id, pageId }
-    }
-
     // Load draft posts (include caption for Brand Brain learning)
     const draftPosts = await (prisma.socialPost as any).findMany({
       where: {
@@ -207,7 +188,6 @@ export async function POST(req: NextRequest, props: Params) {
       for (const [postId, data] of updateById) {
         const sourcePost = draftPosts.find((post: any) => post.id === postId)
         if (!sourcePost) continue
-        const match = integrationMap[platformById.get(postId) as string]
         const changed = await tx.socialPost.updateMany({
           where: {
             id: postId,
@@ -219,7 +199,6 @@ export async function POST(req: NextRequest, props: Params) {
           data: {
             status: data.status,
             ...(data.approvedAt !== undefined ? { approvedAt: data.approvedAt } : {}),
-            ...(match ? { integrationId: match.integrationId, pageId: match.pageId } : {}),
           },
         })
         // Bulk copy approval is one human decision. A concurrent edit to any
@@ -317,13 +296,11 @@ export async function POST(req: NextRequest, props: Params) {
       }
     }
 
-    const approvedIds = new Set(approvalResult.approvedIds)
-    const linked   = draftPosts.filter((p: any) => approvedIds.has(p.id) && !!integrationMap[String(p.platform)]).length
-    const unlinked = approved - linked
+    const linked = 0
+    const unlinked = approved
 
     // Build human-readable message (honest about what actually happened)
     let message = `${approved} post${approved !== 1 ? 's' : ''} approved`
-    if (linked > 0)         message += ` (${linked} linked to connected platforms)`
     if (learningProposalQueued) message += ' · learning proposals ready for review'
 
     return NextResponse.json({
