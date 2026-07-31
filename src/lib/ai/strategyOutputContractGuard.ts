@@ -173,6 +173,10 @@ function normalizeArabicFormatText(value: string): string {
 
 function guardBroadStrategyHypeText(value: string): string {
   return value
+    // Bilingual model output can occasionally choose "an" from the slash-
+    // separated phrase that follows. Normalize the persisted diagnosis before
+    // it reaches Sentinel or any user-facing strategy surface.
+    .replace(/\bin\s+an\s+planning\/review\s+stage\b/gi, 'in a planning/review stage')
     // Product-capability claims must describe the reviewed workflow, not imply
     // every connector, permission, or analytics source is already operational.
     .replace(/\bcomplete\s+workflow\s+from\b/gi, 'governed workflow spanning')

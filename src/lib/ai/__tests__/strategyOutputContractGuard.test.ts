@@ -137,6 +137,20 @@ describe('guardStrategyOutputContract', () => {
     )
   })
 
+  it('repairs an unprofessional article mismatch in a persisted diagnosis', () => {
+    const out = guardStrategyOutputContract({
+      marketingDiagnosis: 'Aster is in an planning/review stage and needs verified inputs.',
+    }, {
+      allowedPlatforms: ['INSTAGRAM', 'LINKEDIN'],
+      strategyType: 'organic',
+      language: 'bilingual',
+    })
+
+    expect(out.marketingDiagnosis).toBe(
+      'Aster is in a planning/review stage and needs verified inputs.',
+    )
+  })
+
   it('aligns the marketing objective with the user-reviewed lead goal', () => {
     const out = guardStrategyOutputContract({
       businessObjective: {
