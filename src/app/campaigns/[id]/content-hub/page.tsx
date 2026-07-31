@@ -1614,7 +1614,7 @@ export default function ContentHubPage() {
       RESOLUTION_REQUIRED: 'الدقة غير كافية: الحد الأدنى 720px للضلع القصير و1024px للضلع الطويل.',
       QUALITY_TOO_LOW: 'جودة الأصل غير مؤهلة: يلزم 70/100 على الأقل قبل إنتاج الفيديو المدفوع. لن يبدأ أي إنفاق.',
       LANGUAGE_MISMATCH: 'لغة الفيديو لا تطابق لغة نص المنشور؛ لائم النص أو اختر أصلًا بنفس اللغة قبل الإنتاج المدفوع.',
-      SUPPORTED_SOURCE_REQUIRED: 'اختر فيديو أصليًا محللًا يُظهر المنتج أو العبوة أو الديمو أو تسجيل الشاشة بوضوح.',
+      SUPPORTED_SOURCE_REQUIRED: 'اختر فيديو أصليًا محللًا يُظهر المنتج أو الديمو أو الشاشة أو عملية الخدمة الفعلية بوضوح.',
       UNSAFE_SOURCE_GRAPHICS: 'الأصل يحتوي رسومات أو نصوصًا مركبة تجعل التوليد السينمائي غير موثوق.',
       CREATOR_REFERENCE_UNSUPPORTED: 'تظهر شخصية أو عارضة في الصورة. للحفاظ على المنتج استخدم صورًا معزولة للمنتج من زوايا واضحة، أو ارفع فيديو حقيقيًا تملك حق استخدامه لمسار Motion Design.',
       PRODUCT_IDENTITY_MISMATCH: 'لا يستطيع NEXUS تأكيد أن الصور لنفس المنتج؛ اختر زوايا أوضح ومتسقة.',
@@ -5633,7 +5633,7 @@ export default function ContentHubPage() {
                       {videoProductionMode === 'PHOTO_FILM'
                         ? (isAr ? 'حوّل صور العقار إلى إعلان احترافي' : 'Turn property photos into a professional ad')
                         : videoProductionMode === 'MOTION_DESIGN'
-                          ? (isAr ? 'حوّل فيديو المنتج إلى Motion Design' : 'Turn your product video into Motion Design')
+                          ? (isAr ? 'حوّل فيديو أصليًا إلى Motion Design' : 'Turn an original video into Motion Design')
                           : videoProductionMode === 'CAMPAIGN_FILM'
                             ? (isAr ? 'إنتاج Concept Film مولّد متعدد اللقطات' : 'Produce a generated multi-shot concept film')
                             : (isAr ? 'إنتاج إعلان يستند إلى صور المنتج' : 'Produce a product-referenced ad')}
@@ -5794,7 +5794,7 @@ export default function ContentHubPage() {
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-sm font-bold text-slate-950">{isAr ? 'الفيديو الأصلي' : 'Original source video'}</p>
                       <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                        {isAr ? 'اختر فيديو أصليًا محللًا للمنتج أو العبوة أو الديمو أو تسجيل الشاشة. يستخدم NEXUS الجزء الافتتاحي الآمن فقط ويمنع إعادة معالجة ناتج سابق.' : 'Choose one analysed original product, packaging, demo, or screen-recording video. NEXUS uses only the safe opening segment and blocks recursive rendering.'}
+                        {isAr ? 'اختر فيديو أصليًا محللًا للمنتج أو الديمو أو تسجيل الشاشة أو عملية الخدمة الفعلية. يستخدم NEXUS الجزء الافتتاحي الآمن فقط ويمنع إعادة معالجة ناتج سابق.' : 'Choose one analysed original product, demo, screen-recording, or evidenced service-process video. NEXUS uses only the safe opening segment and blocks recursive rendering.'}
                       </p>
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         {motionDesignVideos.map(media => (

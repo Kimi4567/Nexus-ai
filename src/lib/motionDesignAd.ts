@@ -6,9 +6,10 @@ import { readMediaIntelligence } from '@/lib/creativeIntelligence'
 export const MOTION_DESIGN_DURATION_SECONDS = 6
 export const MOTION_DESIGN_SAFE_SOURCE_SECONDS = 3
 // Creative Intelligence intentionally scores source videos conservatively. For
-// source-locked Motion Design, a clean 1080p+ demo/screen source can start at
-// 70 because NEXUS preserves the pixels and the final rendered ad still has to
-// pass the stricter multi-frame paid-social quality gate before attachment.
+// source-locked Motion Design, a clean 1080p+ product/demo/screen/service-process
+// source can start at 70 because NEXUS preserves the pixels and the final rendered
+// ad still has to pass the stricter multi-frame paid-social quality gate before
+// attachment.
 // Lower-resolution sources still need the preferred score.
 export const MOTION_DESIGN_SOURCE_QUALITY_MIN = 70
 export const MOTION_DESIGN_SOURCE_QUALITY_PREFERRED = 85
@@ -60,8 +61,23 @@ export type MotionDesignCopy = {
 
 const DERIVATIVE_PATTERN = /motion[-_ ]design|source[-_ ]locked/i
 const SUPPORTED_SOURCE_KINDS = new Set(['PRODUCT', 'PACKAGING', 'DEMO', 'SCREEN'])
+const SERVICE_PROCESS_EVIDENCE = /(?:\b(?:review(?:ing)?|analy[sz](?:e|ing|is)|document(?:s|ation)?|paperwork|papers?|plan(?:ning)?|strateg(?:y|ic)|work(?:ing|flow|space)?|writ(?:e|ing)|laptop|computer|office|meeting|brief(?:ing)?|research(?:ing)?|audit(?:ing)?|organ(?:ize|izing|ise|ising)|schedule|campaign)\b|(?:مراجعة|يراجع|تحليل|يحلل|مستندات|وثائق|أوراق|تخطيط|يخطط|استراتيجية|عمل|سير العمل|كتابة|يكتب|حاسوب|كمبيوتر|مكتب|اجتماع|بحث|تدقيق|تنظيم|جدولة|حملة))/iu
 const NON_BLOCKING_SCREEN_SOURCE_ISSUE = /\b(?:limited visual engagement|text[- ]based|visual diversity|primarily text)\b/i
 const NON_BLOCKING_CONTENT_GAP_ISSUE = /\b(?:lacks?|missing|limited|insufficient|does not (?:show|provide|include|describe|demonstrate)|no (?:specific|detailed|visible))\b.*\b(?:information|details?|context|subscription|delivery|benefits?|pricing|scope|service|window)\b/i
+
+function hasGroundedServiceProcessEvidence(
+  intelligence: NonNullable<ReturnType<typeof readMediaIntelligence>>,
+): boolean {
+  if (intelligence.assetKind !== 'LIFESTYLE') return false
+  const evidence = [
+    intelligence.visibleSummary,
+    ...intelligence.visibleObjects,
+    ...intelligence.visibleActions,
+    ...intelligence.safeThemes,
+    ...intelligence.possibleUseCases,
+  ].join(' ')
+  return SERVICE_PROCESS_EVIDENCE.test(evidence)
+}
 
 function primaryTextLanguage(value: string | null | undefined): 'AR' | 'EN' | 'MIXED' | 'NONE' {
   const text = String(value || '')
@@ -208,10 +224,14 @@ export function assessMotionDesignVideoAsset(
   }
 
   const sourceKind = intelligence?.assetKind ?? null
-  if (intelligence && !SUPPORTED_SOURCE_KINDS.has(intelligence.assetKind)) {
+  if (
+    intelligence
+    && !SUPPORTED_SOURCE_KINDS.has(intelligence.assetKind)
+    && !hasGroundedServiceProcessEvidence(intelligence)
+  ) {
     issues.push({
       code: 'SUPPORTED_SOURCE_REQUIRED',
-      message: 'Motion Design accepts verified product, packaging, demo, or screen-recording videos. Use an original source that clearly shows the approved subject.',
+      message: 'Motion Design accepts verified product, packaging, demo, screen-recording, or clearly evidenced service-process videos. Use an original source that visibly supports the approved subject.',
     })
   }
 

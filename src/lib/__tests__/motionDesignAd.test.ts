@@ -62,6 +62,45 @@ describe('source-locked motion design', () => {
     })
   })
 
+  it('qualifies a documented service-process video but rejects unrelated lifestyle footage', () => {
+    const serviceProcess = screenVideo({ width: 1080, height: 1920 })
+    ;(serviceProcess.intelligence as any).assetKind = 'LIFESTYLE'
+    ;(serviceProcess.intelligence as any).language = 'NONE'
+    ;(serviceProcess.intelligence as any).visibleSummary = 'A person reviewing documents at a desk with a laptop'
+    ;(serviceProcess.intelligence as any).visibleObjects = ['papers', 'laptop', 'camera']
+    ;(serviceProcess.intelligence as any).visibleActions = ['reviewing paperwork']
+    ;(serviceProcess.intelligence as any).safeThemes = ['professional planning workflow']
+    ;(serviceProcess.intelligence as any).possibleUseCases = ['service process']
+    ;(serviceProcess.intelligence as any).visibleText = []
+    ;(serviceProcess.intelligence as any).qualityScore = 75
+    ;(serviceProcess.intelligence as any).qualityIssues = ['No specific property details are visible.']
+
+    expect(assessMotionDesignVideoAsset(serviceProcess, 'راجع مسودات حملتك')).toMatchObject({
+      eligible: true,
+      route: 'SOURCE_LOCKED_MOTION_DESIGN',
+      sourceKind: 'LIFESTYLE',
+      qualityScore: 75,
+      issues: [],
+    })
+
+    expect(assessMotionDesignVideoAsset(serviceProcess, 'راجع مسودات حملتك')).not.toMatchObject({
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'SUPPORTED_SOURCE_REQUIRED' })]),
+    })
+
+    const unrelatedLifestyle = structuredClone(serviceProcess)
+    ;(unrelatedLifestyle.intelligence as any).visibleSummary = 'People relaxing on a beach at sunset'
+    ;(unrelatedLifestyle.intelligence as any).visibleObjects = ['beach', 'ocean']
+    ;(unrelatedLifestyle.intelligence as any).visibleActions = ['walking', 'dancing']
+    ;(unrelatedLifestyle.intelligence as any).safeThemes = ['summer leisure']
+    ;(unrelatedLifestyle.intelligence as any).possibleUseCases = ['travel mood']
+
+    expect(assessMotionDesignVideoAsset(unrelatedLifestyle, 'راجع مسودات حملتك')).toMatchObject({
+      eligible: false,
+      sourceKind: 'LIFESTYLE',
+      issues: expect.arrayContaining([expect.objectContaining({ code: 'SUPPORTED_SOURCE_REQUIRED' })]),
+    })
+  })
+
   it('blocks low-resolution, short, unanalysed, or unsupported sources', () => {
     expect(assessMotionDesignVideoAsset(screenVideo({ width: 640 }))).toMatchObject({ eligible: false })
     expect(assessMotionDesignVideoAsset(screenVideo({ duration: 3 }))).toMatchObject({ eligible: false })
