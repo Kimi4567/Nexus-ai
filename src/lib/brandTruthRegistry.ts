@@ -19,7 +19,11 @@ export type BrandTruthAreaStatus =
   | 'CONFLICTING'
   | 'MISSING'
 
+export type BrandTruthBusinessModel = 'SERVICE' | 'PRODUCT_OR_MIXED' | 'UNKNOWN'
+
 export interface BrandTruthProfileLike {
+  industry?: string | null
+  description?: string | null
   primaryOffer?: string | null
   secondaryOffers?: string[] | null
   pricePoint?: string | null
@@ -47,6 +51,7 @@ export interface BrandTruthArea {
 }
 
 export interface BrandTruthSummary {
+  businessModel: BrandTruthBusinessModel
   areas: BrandTruthArea[]
   sourceConfirmedAreaCount: number
   ownerConfirmedAreaCount: number
@@ -85,6 +90,16 @@ const AREA_ORDER: BrandTruthAreaKey[] = [
   'conversion_path',
 ]
 
+const PRODUCT_ONLY_AREAS = new Set<BrandTruthAreaKey>([
+  'sizing',
+  'delivery',
+  'returns',
+  'materials_quality',
+])
+
+const SERVICE_SIGNALS = /\b(?:agency|consulting|consultancy|marketing|strategy|strategic|service|services|saas|software|clinic|professional|education|training|coaching|broker|brokerage|real estate|property management)\b|وكالة|استشار(?:ة|ات|ي)|تسويق|استراتيج(?:ية|ي)|خدمة|خدمات|برمجيات|عيادة|مهني|تعليم|تدريب|وسيط|وساطة|عقار(?:ات|ي|ية)|إدارة عقارات/iu
+const PRODUCT_SIGNALS = /\b(?:e-?commerce|product|products|store|shop|retail|food|fashion|beauty|cosmetics|furniture|apparel|clothing|restaurant)\b|تجارة إلكترونية|منتج|منتجات|متجر|تجزئة|أغذية|طعام|مطعم|موضة|أزياء|جمال|مستحضرات|أثاث|ملابس/iu
+
 const TERMS: Record<Exclude<BrandTruthAreaKey, 'visual_assets' | 'conversion_path'>, RegExp> = {
   offer: /\b(?:product|service|offer|package|plan|subscription|collection)\b|منتج|خدمة|عرض|باقة|اشتراك|تشكيلة/iu,
   pricing: /\b(?:price|pricing|cost|fee|fees|aed|usd|eur|gbp|dhs?|dirhams?|discount)\b|سعر|أسعار|تكلفة|رسوم|درهم|دولار|خصم/iu,
@@ -103,6 +118,25 @@ function cleanList(value: unknown): string[] {
   return Array.isArray(value)
     ? value.map(clean).filter(Boolean)
     : []
+}
+
+export function inferBrandTruthBusinessModel(
+  profile: BrandTruthProfileLike = {},
+): BrandTruthBusinessModel {
+  const profileText = [
+    clean(profile.industry),
+    clean(profile.description),
+    clean(profile.primaryOffer),
+    ...cleanList(profile.secondaryOffers),
+  ].filter(Boolean).join(' ')
+
+  if (!profileText) return 'UNKNOWN'
+
+  const hasServiceSignal = SERVICE_SIGNALS.test(profileText)
+  const hasProductSignal = PRODUCT_SIGNALS.test(profileText)
+  if (hasProductSignal) return 'PRODUCT_OR_MIXED'
+  if (hasServiceSignal) return 'SERVICE'
+  return 'UNKNOWN'
 }
 
 function claimMatchesArea(claim: BrandTruthClaimLike, key: BrandTruthAreaKey): boolean {
@@ -155,6 +189,7 @@ function ownerCandidate(
 
 export function buildBrandTruthRegistry(input: BrandTruthRegistryInput = {}): BrandTruthSummary {
   const profile = input.profile ?? {}
+  const businessModel = inferBrandTruthBusinessModel(profile)
   const claims = Array.isArray(input.claims) ? input.claims : []
   const visualAssetCount = Number.isFinite(input.visualAssetCount)
     ? Math.max(0, Math.floor(Number(input.visualAssetCount)))
@@ -167,7 +202,7 @@ export function buildBrandTruthRegistry(input: BrandTruthRegistryInput = {}): Br
     .filter(item => item.status === 'source_linked')
     .map(item => item.statement)
 
-  const areas = AREA_ORDER.map<BrandTruthArea>(key => {
+  const allAreas = AREA_ORDER.map<BrandTruthArea>(key => {
     if (key === 'visual_assets') {
       return {
         key,
@@ -221,8 +256,12 @@ export function buildBrandTruthRegistry(input: BrandTruthRegistryInput = {}): Br
       sourceKind,
     }
   })
+  const areas = businessModel === 'SERVICE'
+    ? allAreas.filter(area => !PRODUCT_ONLY_AREAS.has(area.key) || area.status !== 'MISSING')
+    : allAreas
 
   return {
+    businessModel,
     areas,
     sourceConfirmedAreaCount: areas.filter(area => area.status === 'SOURCE_CONFIRMED').length,
     ownerConfirmedAreaCount: areas.filter(area => area.status === 'OWNER_CONFIRMED').length,

@@ -9,6 +9,7 @@ import { fetchCreditOperation } from '@/lib/creditOperationClient'
 import { CREDIT_ACTION_COSTS } from '@/lib/creditActionTruth'
 import {
   buildBrandTruthRegistry,
+  inferBrandTruthBusinessModel,
   type BrandTruthProfileLike,
   type BrandTruthSummary,
 } from '@/lib/brandTruthRegistry'
@@ -109,6 +110,10 @@ export function BrandEvidenceLibrary({ locale, authHeader, onProofChanged, profi
         visualAssetCount: truthSummary.visualAssetCount,
       })
     : null
+  const serviceBrand = (
+    displayedTruthSummary?.businessModel
+    ?? inferBrandTruthBusinessModel(profile ?? {})
+  ) === 'SERVICE'
 
   const removeDocument = async (documentId: string, silent = false) => {
     if (!silent && !window.confirm(ar ? 'حذف هذا المصدر وكل الأدلة المرتبطة به؟' : 'Remove this source and all proof linked to it?')) return
@@ -256,11 +261,19 @@ export function BrandEvidenceLibrary({ locale, authHeader, onProofChanged, profi
 
       <div className="mt-4 flex flex-col gap-3 rounded-xl border border-sky-200 bg-sky-50/70 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-bold text-sky-950">{ar ? 'لديك صور منتجات أو فيديوهات؟' : 'Have product images or videos?'}</p>
+          <p className="text-xs font-bold text-sky-950">
+            {serviceBrand
+              ? (ar ? 'لديك أصول حقيقية للخدمة أو الحملات؟' : 'Have real service or campaign assets?')
+              : (ar ? 'لديك صور منتجات أو فيديوهات؟' : 'Have product images or videos?')}
+          </p>
           <p className="mt-1 text-[11px] leading-5 text-sky-800">
-            {ar
-              ? 'ارفع الأدلة البصرية في مكتبة الوسائط ثم حلّلها واربطها بالحملة. الصورة وحدها لا تثبت السعر أو الخامة أو المخزون أو نتائج العملاء.'
-              : 'Upload visual evidence in Media Library, then analyse and attach it to the campaign. An image alone never proves price, material, stock, or customer results.'}
+            {serviceBrand
+              ? (ar
+                  ? 'ارفع صورًا أو فيديوهات حقيقية للخدمة أو الفريق أو مكان العمل، ثم حلّلها واربطها بالحملة. الأصل البصري وحده لا يثبت نطاق الخدمة أو الرسوم أو الخبرة أو نتائج العملاء.'
+                  : 'Upload real service, team, or workspace visuals, then analyse and attach them to the campaign. A visual alone never proves service scope, fees, expertise, or client results.')
+              : (ar
+                  ? 'ارفع الأدلة البصرية في مكتبة الوسائط ثم حلّلها واربطها بالحملة. الصورة وحدها لا تثبت السعر أو الخامة أو المخزون أو نتائج العملاء.'
+                  : 'Upload visual evidence in Media Library, then analyse and attach it to the campaign. An image alone never proves price, material, stock, or customer results.')}
           </p>
         </div>
         <Link href="/media" className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg border border-sky-300 bg-white px-3 text-[11px] font-bold text-sky-800 hover:border-sky-400">
@@ -278,7 +291,15 @@ export function BrandEvidenceLibrary({ locale, authHeader, onProofChanged, profi
         <div className="mt-5 rounded-xl border border-dashed border-emerald-200 bg-white/70 p-4 text-center">
           <FileText className="mx-auto text-emerald-500" size={22} />
           <p className="mt-2 text-xs font-semibold text-slate-700">{ar ? 'لا توجد مصادر بعد' : 'No source documents yet'}</p>
-          <p className="mt-1 text-[11px] text-slate-500">{ar ? 'ابدأ بملف تعريفي، شهادة، قائمة منتجات، أو نتائج موثقة.' : 'Start with a company profile, certificate, product sheet, or verified result.'}</p>
+          <p className="mt-1 text-[11px] text-slate-500">
+            {serviceBrand
+              ? (ar
+                  ? 'ابدأ بملف تعريفي، شهادة، ملف عرض خدمة، أو نتائج موثقة.'
+                  : 'Start with a company profile, certificate, service offer sheet, or verified result.')
+              : (ar
+                  ? 'ابدأ بملف تعريفي، شهادة، قائمة منتجات، أو نتائج موثقة.'
+                  : 'Start with a company profile, certificate, product sheet, or verified result.')}
+          </p>
         </div>
       ) : (
         <div className="mt-5 space-y-3">

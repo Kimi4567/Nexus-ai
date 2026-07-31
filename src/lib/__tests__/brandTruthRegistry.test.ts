@@ -67,4 +67,42 @@ describe('brand truth registry', () => {
     expect(summary.areas.find(area => area.key === 'materials_quality')?.status).toBe('MISSING')
     expect(summary.areas.find(area => area.key === 'commercial_proof')?.status).toBe('MISSING')
   })
+
+  it('keeps a real-estate marketing service focused on applicable proof areas', () => {
+    const summary = buildBrandTruthRegistry({
+      profile: {
+        industry: 'عقارات',
+        description: 'شركة تسويق عقاري في دبي تساعد الوسطاء والمطورين على إنتاج حملات محتوى موثقة.',
+        primaryOffer: 'استراتيجية وحملات محتوى عقاري مبنية على صور وبيانات يزوّد بها العميل',
+      },
+    })
+
+    expect(summary.businessModel).toBe('SERVICE')
+    expect(summary.areas.map(area => area.key)).toEqual([
+      'offer',
+      'pricing',
+      'commercial_proof',
+      'visual_assets',
+      'conversion_path',
+    ])
+    expect(summary.restrictedStrongClaimKeys).toEqual([
+      'offer',
+      'pricing',
+      'commercial_proof',
+    ])
+  })
+
+  it('keeps explicit operational proof visible for a service brand', () => {
+    const summary = buildBrandTruthRegistry({
+      profile: {
+        industry: 'Marketing agency',
+        primaryOffer: 'Campaign strategy service',
+        verifiedProof: ['Owner confirms delivery within five business days'],
+      },
+    })
+
+    expect(summary.businessModel).toBe('SERVICE')
+    expect(summary.areas.find(area => area.key === 'delivery')?.status).toBe('OWNER_CONFIRMED')
+    expect(summary.restrictedStrongClaimKeys).toContain('delivery')
+  })
 })

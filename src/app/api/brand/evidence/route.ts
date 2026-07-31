@@ -57,6 +57,8 @@ export async function GET(req: NextRequest) {
       prisma.brandProfile.findUnique({
         where: { workspaceId: workspace.id },
         select: {
+          industry: true,
+          description: true,
           primaryOffer: true,
           secondaryOffers: true,
           pricePoint: true,

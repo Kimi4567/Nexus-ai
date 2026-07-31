@@ -42,4 +42,28 @@ describe('BrandEvidenceLibrary', () => {
       headers: { Authorization: 'Bearer token' },
     })
   })
+
+  it('uses service evidence language without product-only proof requirements', async () => {
+    render(
+      <BrandEvidenceLibrary
+        locale="en"
+        authHeader={() => 'Bearer token'}
+        onProofChanged={() => undefined}
+        profile={{
+          industry: 'Real estate',
+          description: 'A real-estate marketing agency in Dubai.',
+          primaryOffer: 'Property campaign strategy service',
+        }}
+      />,
+    )
+
+    expect(await screen.findByText('Service / offer identity')).toBeTruthy()
+    expect(screen.getByText('Service visuals')).toBeTruthy()
+    expect(screen.getByText('Have real service or campaign assets?')).toBeTruthy()
+    expect(screen.queryByText('Sizing & fit')).toBeNull()
+    expect(screen.queryByText('Delivery')).toBeNull()
+    expect(screen.queryByText('Returns & refunds')).toBeNull()
+    expect(screen.queryByText('Materials & quality')).toBeNull()
+    expect(screen.queryByText('Product visuals')).toBeNull()
+  })
 })

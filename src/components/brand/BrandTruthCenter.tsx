@@ -37,6 +37,25 @@ const ACTIONS: Record<BrandTruthAreaKey, { en: string; ar: string }> = {
   conversion_path: { en: 'Add a real live URL, form, booking page, or WhatsApp path.', ar: 'أضف رابطًا حيًا حقيقيًا أو نموذجًا أو صفحة حجز أو مسار واتساب.' },
 }
 
+const SERVICE_LABELS: Partial<Record<BrandTruthAreaKey, { en: string; ar: string }>> = {
+  offer: { en: 'Service / offer identity', ar: 'هوية الخدمة أو العرض' },
+  delivery: { en: 'Service delivery terms', ar: 'شروط تسليم الخدمة' },
+  returns: { en: 'Cancellations & refunds', ar: 'الإلغاء والاسترداد' },
+  materials_quality: { en: 'Service standards', ar: 'معايير الخدمة' },
+  visual_assets: { en: 'Service visuals', ar: 'الأصول البصرية للخدمة' },
+}
+
+const SERVICE_ACTIONS: Partial<Record<BrandTruthAreaKey, { en: string; ar: string }>> = {
+  offer: { en: 'Upload a current service or package sheet.', ar: 'ارفع ملفًا حاليًا للخدمة أو الباقة.' },
+  delivery: { en: 'Upload approved service delivery terms or turnaround times.', ar: 'ارفع شروط تسليم الخدمة أو مدد التنفيذ المعتمدة.' },
+  returns: { en: 'Upload the current cancellation or refund policy.', ar: 'ارفع سياسة الإلغاء أو الاسترداد الحالية.' },
+  materials_quality: { en: 'Upload approved service standards or specifications.', ar: 'ارفع معايير الخدمة أو مواصفاتها المعتمدة.' },
+  visual_assets: {
+    en: 'Add real service, team, workspace, or campaign assets in Media Library.',
+    ar: 'أضف أصولًا حقيقية للخدمة أو الفريق أو مكان العمل أو الحملات في مكتبة الوسائط.',
+  },
+}
+
 const STATUS_STYLE: Record<BrandTruthAreaStatus, string> = {
   SOURCE_CONFIRMED: 'border-emerald-200 bg-emerald-50 text-emerald-800',
   OWNER_CONFIRMED: 'border-sky-200 bg-sky-50 text-sky-800',
@@ -66,6 +85,7 @@ function StatusIcon({ status }: { status: BrandTruthAreaStatus }) {
 
 export function BrandTruthCenter({ locale, summary }: BrandTruthCenterProps) {
   const ar = locale === 'ar'
+  const serviceBrand = summary.businessModel === 'SERVICE'
   return (
     <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -105,10 +125,12 @@ export function BrandTruthCenter({ locale, summary }: BrandTruthCenterProps) {
         {summary.areas.map(area => {
           const needsAction = area.status !== 'SOURCE_CONFIRMED'
             && !(area.key === 'conversion_path' && area.status === 'OWNER_CONFIRMED')
+          const labels = (serviceBrand ? SERVICE_LABELS[area.key] : undefined) ?? LABELS[area.key]
+          const actions = (serviceBrand ? SERVICE_ACTIONS[area.key] : undefined) ?? ACTIONS[area.key]
           return (
             <article key={area.key} className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
               <div className="flex items-start justify-between gap-2">
-                <p className="text-xs font-bold text-slate-900">{ar ? LABELS[area.key].ar : LABELS[area.key].en}</p>
+                <p className="text-xs font-bold text-slate-900">{ar ? labels.ar : labels.en}</p>
                 <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold ${STATUS_STYLE[area.status]}`}>
                   <StatusIcon status={area.status} />
                   {statusLabel(area, ar)}
@@ -123,7 +145,7 @@ export function BrandTruthCenter({ locale, summary }: BrandTruthCenterProps) {
               )}
               {needsAction && (
                 <p className="mt-2 text-[10px] font-semibold leading-4 text-slate-700">
-                  {ar ? ACTIONS[area.key].ar : ACTIONS[area.key].en}
+                  {ar ? actions.ar : actions.en}
                 </p>
               )}
             </article>
