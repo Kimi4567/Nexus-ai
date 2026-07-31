@@ -26,6 +26,43 @@ interface ProofAvailability {
   hasBusinessResultProof: boolean
 }
 
+type ProtectedNegativeConstraints = {
+  text: string
+  restore: (value: string) => string
+}
+
+/**
+ * Media directions often list forbidden elements using one leading negation,
+ * for example "no names, prices, testimonials, or performance results".
+ * Claim guards must inspect affirmative copy without rewriting those explicit
+ * exclusions into bogus "proof to collect" or feature claims.
+ */
+function protectExplicitNegativeConstraints(value: string): ProtectedNegativeConstraints {
+  const constraints: string[] = []
+  const text = value.replace(
+    /(?:\b(?:do\s+not\s+(?:include|show|claim|imply|invent)|no|not|without|never|avoid|exclude)\b|(?:لا\s+(?:تتضمن|تظهر|تعرض|تدّعي|تدعي|تخترع)|بدون|دون|تجنب|تجنّب))[^.;!?؟\n]*/giu,
+    (constraint) => {
+      const commaCount = (constraint.match(/[,،]/g) || []).length
+      const alternativeCount = (constraint.match(/\b(?:or|nor)\b|(?:^|\s)أو(?=\s|$)/giu) || []).length
+      const isExplicitMediaExclusionList = (
+        commaCount >= 2
+        || alternativeCount >= 2
+        || (commaCount >= 1 && alternativeCount >= 1)
+      ) && /(?:text|logo|name|address|price|client|customer|testimonial|result|claim|scene|photo|listing|data|أسماء|شعارات|أسعار|عملاء|شهادات|نتائج|ادعاء|مشهد|صورة|بيانات)/iu.test(constraint)
+      if (!isExplicitMediaExclusionList) return constraint
+      const index = constraints.push(constraint) - 1
+      return `__NEXUS_NEGATIVE_CONSTRAINT_${index}__`
+    },
+  )
+  return {
+    text,
+    restore: (guarded) => constraints.reduce(
+      (result, constraint, index) => result.replace(`__NEXUS_NEGATIVE_CONSTRAINT_${index}__`, constraint),
+      guarded,
+    ),
+  }
+}
+
 function verifiedProofText(context: ContentDraftTruthContext): string {
   return Array.isArray(context.verifiedProof)
     ? context.verifiedProof.filter((item): item is string => typeof item === 'string').join(' \n ')
@@ -1455,6 +1492,7 @@ export function guardContentDraftText(
   context: ContentDraftTruthContext = {},
 ): string {
   if (typeof text !== 'string' || !text.trim()) return typeof text === 'string' ? text : ''
+  const protectedConstraints = protectExplicitNegativeConstraints(text)
 
   const guarded = guardSaasActivationClaims(guardPaidAndStatusClaims(
     guardUnverifiedCoffeeProductClaims(guardDraftCopyQuality(guardCoffeeComplianceClaims(
@@ -1465,7 +1503,7 @@ export function guardContentDraftText(
               guardBroadQualityClaims(
                 guardOperationalSaasAndHealthcareClaims(
                   softenAbsoluteClaims(
-                    guardProofClaims(text, context),
+                    guardProofClaims(protectedConstraints.text, context),
                   ),
                 ),
               ),
@@ -1477,13 +1515,13 @@ export function guardContentDraftText(
     )), context),
   ), context)
 
-  return finalizeGuardedDraftCopy(guardNexusMarketingOperatingClaims(
+  return protectedConstraints.restore(finalizeGuardedDraftCopy(guardNexusMarketingOperatingClaims(
     guardUnverifiedBrandContextClaims(
       guardUnverifiedFeatureAndOutcomeClaims(guarded, context),
       context,
     ),
     context,
-  ))
+  )))
     .replace(/\s{2,}/g, ' ')
     .trim()
 }

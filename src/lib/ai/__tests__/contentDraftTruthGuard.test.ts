@@ -99,6 +99,21 @@ describe('contentDraftTruthGuard', () => {
     expect(guarded).toContain('راجع تجربة الاستخدام الفعلية')
   })
 
+  it('preserves explicit negative media constraints instead of treating forbidden proof as a claim', () => {
+    const prompt = 'Professional editorial flat-lay illustration of generic property-marketing campaign documents, a magnifying glass, neutral desk materials, and abstract checklist marks; no readable names, addresses, prices, logos, client data, property listing, property photograph, testimonial, delivery scene, performance result, or claim that the image proves accuracy. Clean landscape composition for LinkedIn, commercially safe, no text.'
+
+    expect(guardContentDraftText(prompt, {
+      brandFacts: ['Real-estate marketing strategy and content from user-supplied property assets.'],
+      verifiedProof: [],
+    })).toBe(prompt)
+
+    const arabicConstraint = 'رسم تحريري لمستندات حملة عامة؛ لا تعرض أسماء أو أسعارًا أو شهادات عملاء أو نتائج أداء أو ادعاءً بأن الصورة تثبت الدقة.'
+    expect(guardContentDraftText(arabicConstraint, {
+      brandFacts: ['تسويق عقاري من أصول يقدّمها المستخدم.'],
+      verifiedProof: [],
+    })).toBe(arabicConstraint)
+  })
+
   it('keeps an integration capability when Brand Brain explicitly supplies it', () => {
     const draft = 'The system integrates with HubSpot for a connected workflow.'
     expect(guardContentDraftText(draft, {

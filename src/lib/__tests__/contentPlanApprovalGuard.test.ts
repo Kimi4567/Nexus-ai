@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildContentPlanTruthContext, reviewContentPlanForApproval } from '@/lib/contentPlanApprovalGuard'
+import {
+  buildContentPlanTruthContext,
+  reviewContentPlanForApproval,
+  reviewContentPostForPublishing,
+} from '@/lib/contentPlanApprovalGuard'
 
 const strategy = {
   keyMessage: 'Prepare for a clear dental consultation',
@@ -147,6 +151,18 @@ describe('contentPlanApprovalGuard', () => {
     ], strategy, facts)
 
     expect(review).toEqual({ ok: true, issues: [] })
+  })
+
+  it('does not flag an explicit no-proof media direction as an unverified outcome', () => {
+    const issues = reviewContentPostForPublishing({
+      caption: 'راجع محتوى حملتك العقارية قبل الاعتماد.',
+      imagePrompt: 'Professional editorial flat-lay illustration of generic property-marketing campaign documents, a magnifying glass, neutral desk materials, and abstract checklist marks; no readable names, addresses, prices, logos, client data, property listing, property photograph, testimonial, delivery scene, performance result, or claim that the image proves accuracy. Clean landscape composition for LinkedIn, commercially safe, no text.',
+    }, 1, {
+      brandFacts: ['تسويق عقاري من أصول يقدّمها المستخدم.'],
+      verifiedProof: [],
+    })
+
+    expect(issues.map(issue => issue.reason)).not.toContain('unverified_feature_or_outcome')
   })
 
   it('allows grounded interior-design captions and text-free scene directions', () => {
