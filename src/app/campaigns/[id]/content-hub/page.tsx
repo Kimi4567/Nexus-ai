@@ -3206,33 +3206,13 @@ export default function ContentHubPage() {
           <div className="flex w-full min-w-0 flex-wrap items-stretch justify-start gap-3 sm:w-auto sm:items-center sm:justify-end">
             {posts.length > 0 && (
               <>
-                {/* Owner path: one reviewed package decision. Legacy/partial
-                    APPROVED states keep their separate recovery controls. */}
+                {/* Owner path: copy approval first. Media approval and scheduling
+                    stay separate so proposed dates never masquerade as execution. */}
                 {draftCount > 0 ? (
                   <button
                     onClick={() => {
                       if (approvalBlocked) return
-                      if (draftMediaDecisionCount > 0) {
-                        setError(isAr
-                          ? `أكمل وسائط ${draftMediaDecisionCount} منشورات ليصبح قرار الحزمة جاهزًا.`
-                          : `Complete media for ${draftMediaDecisionCount} post${draftMediaDecisionCount === 1 ? '' : 's'} to make the package decision ready.`)
-                        document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                        return
-                      }
                       setError(null)
-                      const now = Date.now()
-                      setScheduleDateByPostId(Object.fromEntries(
-                        draftPosts.map((post, index) => {
-                          const saved = post.scheduledAt ? new Date(post.scheduledAt) : null
-                          if (saved && !Number.isNaN(saved.getTime()) && saved.getTime() > now) {
-                            return [post.id, toLocalScheduleInputValue(saved.toISOString())]
-                          }
-                          const proposed = new Date(now)
-                          proposed.setDate(proposed.getDate() + 1 + Math.floor(index / 3))
-                          proposed.setHours([10, 14, 18][index % 3], 0, 0, 0)
-                          return [post.id, toLocalScheduleInputValue(proposed.toISOString())]
-                        }),
-                      ))
                       setWeakMediaApprovalAcknowledged(false)
                       setShowApproveConfirm(true)
                     }}

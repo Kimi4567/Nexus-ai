@@ -939,11 +939,11 @@ export default function DashboardPage() {
     if (topCampaign && contentCount > 0 && scheduledWithEvidence === 0) {
       return {
         href: `/campaigns/${topCampaign.id}/content-hub`,
-        title: ar ? 'راجع حزمة المحتوى وسجّل الجدول' : 'Review the content package and record the schedule',
+        title: ar ? 'راجع النصوص والوسائط ثم سجّل الجدول' : 'Review copy and media, then record the schedule',
         body: ar
-          ? 'جهّز NEXUS النصوص والوسائط والمواعيد المقترحة. راجع الحزمة في شاشة واحدة؛ اعتمادها يسجل جدول تنفيذ داخلي فقط، ولا ينشر أو يصرف ميزانية.'
-          : 'NEXUS prepared the copy, media, and proposed dates. Review one package; approval records an internal execution schedule only and does not publish or spend budget.',
-        cta: ar ? 'مراجعة الحزمة' : 'Review package',
+          ? 'جهّز NEXUS النصوص والوسائط والمواعيد المقترحة. احفظ اعتماد النصوص أولاً، ثم اعتماد الوسائط، ثم الجدولة الداخلية كقرار منفصل. لا ينشر أو يصرف ميزانية.'
+          : 'NEXUS prepared the copy, media, and proposed dates. Save copy approval first, then media approval, then internal scheduling as a separate decision. Nothing is published or spent.',
+        cta: ar ? 'مراجعة القرارات' : 'Review decisions',
       }
     }
     if (executionAction) {
