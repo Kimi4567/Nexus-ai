@@ -389,6 +389,7 @@ export async function POST(req: NextRequest, props: Params) {
       formatValidation,
       requireProductAdStructure: true,
       qualityStandard: 'PAID_SOCIAL',
+      sourceLockedReference: true,
       approvedOverlayTexts: [
         timeline.copy.brand.toUpperCase(),
         timeline.copy.eyebrow,

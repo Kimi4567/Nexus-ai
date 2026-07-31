@@ -327,6 +327,54 @@ describe('generated media quality gate', () => {
     })).toBe(false)
   })
 
+  it('rechecks an unexplained source-locked preservation score without lowering the 90-point bar', () => {
+    const review = {
+      referencePreservationScore: 80,
+      semanticAlignmentScore: 80,
+      professionalQualityScore: 80,
+      technicalIntegrity: true,
+      noNewRasterText: true,
+      noInventedClaims: true,
+      advertisingStructure: true,
+      paidSocialAdReadiness: true,
+      commercialHookScore: 80,
+      productHeroScore: 80,
+      benefitCommunicationScore: 80,
+      commercialPacingScore: 80,
+      endFrameReadinessScore: 80,
+      brandAlignmentScore: 80,
+      issues: [],
+    }
+    const input = {
+      mediaType: 'VIDEO' as const,
+      referenceImageUrls: ['https://res.cloudinary.com/demo/source.jpg'],
+      requireProductAdStructure: true,
+      qualityStandard: 'PAID_SOCIAL' as const,
+      sourceLockedReference: true,
+    }
+
+    expect(generatedMediaQualityNeedsConsistencyRepair(review, input)).toBe(true)
+    const result = normalizeGeneratedMediaQualityReview(review, input, usage)
+    expect(result.passed).toBe(false)
+    expect(result.issues).toContain(
+      'The source-locked edit did not preserve the visible source identity clearly enough; inspect the crop, overlays, and protected subject before attachment.',
+    )
+  })
+
+  it('accepts a concrete source-identity defect instead of forcing a consistency retry', () => {
+    expect(generatedMediaQualityNeedsConsistencyRepair({
+      referencePreservationScore: 80,
+      advertisingStructure: true,
+      paidSocialAdReadiness: false,
+      issues: ['The protected subject identity is distorted in the closing frame.'],
+    }, {
+      referenceImageUrls: ['https://res.cloudinary.com/demo/source.jpg'],
+      requireProductAdStructure: true,
+      qualityStandard: 'PAID_SOCIAL',
+      sourceLockedReference: true,
+    })).toBe(false)
+  })
+
   it('rejects beautiful AI B-roll when commercial readiness is below threshold', () => {
     const result = normalizeGeneratedMediaQualityReview({
       referencePreservationScore: 96,

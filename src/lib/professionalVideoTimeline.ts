@@ -1,6 +1,6 @@
 import type { MotionDesignCopy } from '@/lib/motionDesignAd'
 
-export const PROFESSIONAL_VIDEO_TIMELINE_VERSION = '2026-07-v4'
+export const PROFESSIONAL_VIDEO_TIMELINE_VERSION = '2026-07-v5'
 export const PROFESSIONAL_VIDEO_FRAME_RATE = 24
 export const PROFESSIONAL_VIDEO_DURATION_SECONDS = 6
 export const PROFESSIONAL_VIDEO_SAFE_SOURCE_SECONDS = 3
@@ -151,6 +151,14 @@ function exactAudienceLead(caption: string, excluded: string[]): string | null {
   return lead
 }
 
+function exactActionAfterAudience(caption: string, audienceLead: string | null): string | null {
+  if (!audienceLead) return null
+  const firstSentence = caption.split(/[.!?؟]+/u)[0]?.trim() || ''
+  const parts = firstSentence.split(/[,،:]+/u).map(value => value.trim()).filter(Boolean)
+  if (parts.length < 2 || normalized(parts[0] || '') !== normalized(audienceLead)) return null
+  return clean(parts.slice(1).join(' '), 42) || null
+}
+
 function isHexColor(value: string): boolean {
   return /^#[0-9a-f]{6}$/i.test(value)
 }
@@ -184,8 +192,15 @@ export function buildProfessionalVideoTimeline(input: {
       ? 'SERVICE_PROMISE'
       : 'BRAND_STORY'
 
-  const headline = clean(price || duration || input.copy.hook, 42)
-  const audienceLead = exactAudienceLead(caption, [headline])
+  const audienceLead = template === 'BRAND_STORY'
+    ? exactAudienceLead(caption, [])
+    : null
+  const audienceAction = template === 'BRAND_STORY'
+    && audienceLead
+    && normalized(input.copy.hook).includes(normalized(audienceLead))
+    ? exactActionAfterAudience(caption, audienceLead)
+    : null
+  const headline = clean(price || duration || audienceAction || input.copy.hook, 42)
   const eyebrow = clean(
     template === 'OFFER_REVEAL'
       ? quantity || input.copy.hook

@@ -37,6 +37,7 @@ describe('generated media quality standards', () => {
       referenceImageUrls: ['https://example.com/reference.jpg'],
       requireProductAdStructure: true,
       qualityStandard: 'PAID_SOCIAL',
+      sourceLockedReference: true,
     }, providerUsage)
 
     expect(result).toMatchObject({

@@ -71,6 +71,14 @@ type QualityInput = {
    * never the original background, lighting, crop, or staging.
    */
   allowAdvertisingSceneTransformation?: boolean
+  /**
+   * The output was built only from the supplied source pixels by the
+   * deterministic NEXUS compositor. Editorial crop, timing, zoom, padding,
+   * colour correction, and approved vector overlays are expected; an
+   * under-threshold preservation score must identify a concrete visible
+   * identity/pixel-integrity defect before the render is rejected.
+   */
+  sourceLockedReference?: boolean
 }
 
 function boundedText(value: unknown, max = 280): string {
@@ -132,23 +140,34 @@ function qualityThresholds(qualityStandard: 'PAID_SOCIAL' | 'PREMIUM' | 'GENERAL
 
 export function generatedMediaQualityNeedsConsistencyRepair(
   value: unknown,
-  input: Pick<QualityInput, 'requireProductAdStructure' | 'qualityStandard'>,
+  input: Pick<QualityInput, 'requireProductAdStructure' | 'qualityStandard' | 'referenceImageUrl' | 'referenceImageUrls' | 'sourceLockedReference'>,
 ): boolean {
-  if (!input.requireProductAdStructure || !value || typeof value !== 'object' || Array.isArray(value)) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false
   }
   const result = value as Record<string, unknown>
-  if (result.paidSocialAdReadiness !== true) return false
-
   const scoreScale = providerScoreScale(result)
   const thresholds = qualityThresholds(input.qualityStandard ?? 'PREMIUM')
-  return result.advertisingStructure !== true
+  const referenceRequired = Boolean(input.referenceImageUrl || input.referenceImageUrls?.length)
+  const concreteReferenceIssue = boundedIssues(result.issues).some(issue => (
+    /(?:replaced|redesigned|relabelled|recolored|recoloured|duplicated|distorted|unrecognizable|identity|important subject|protected subject)/i.test(issue)
+  ))
+  const unexplainedSourceLockedReferenceScore = input.sourceLockedReference === true
+    && referenceRequired
+    && score(result.referencePreservationScore, scoreScale) < thresholds.referencePreservation
+    && !concreteReferenceIssue
+  const inconsistentCommercialReadiness = input.requireProductAdStructure === true
+    && result.paidSocialAdReadiness === true
+    && (
+      result.advertisingStructure !== true
     || score(result.commercialHookScore, scoreScale) < thresholds.commercialHook
     || score(result.productHeroScore, scoreScale) < thresholds.productHero
     || score(result.benefitCommunicationScore, scoreScale) < thresholds.benefitCommunication
     || score(result.commercialPacingScore, scoreScale) < thresholds.commercialPacing
     || score(result.endFrameReadinessScore, scoreScale) < thresholds.endFrameReadiness
     || score(result.brandAlignmentScore, scoreScale) < thresholds.brandAlignment
+    )
+  return unexplainedSourceLockedReferenceScore || inconsistentCommercialReadiness
 }
 
 function parseJsonObject(value: unknown): Record<string, unknown> {
@@ -169,7 +188,7 @@ function parseJsonObject(value: unknown): Record<string, unknown> {
 
 export function normalizeGeneratedMediaQualityReview(
   value: unknown,
-  input: Pick<QualityInput, 'mediaType' | 'referenceImageUrl' | 'referenceImageUrls' | 'targetFormat' | 'formatValidation' | 'requireProductAdStructure' | 'requiresRealProductHero' | 'qualityStandard' | 'backgroundOnly' | 'allowAdvertisingSceneTransformation'>,
+  input: Pick<QualityInput, 'mediaType' | 'referenceImageUrl' | 'referenceImageUrls' | 'targetFormat' | 'formatValidation' | 'requireProductAdStructure' | 'requiresRealProductHero' | 'qualityStandard' | 'backgroundOnly' | 'allowAdvertisingSceneTransformation' | 'sourceLockedReference'>,
   providerUsage: ProviderUsageSummary,
 ): GeneratedMediaQualityReview {
   const result = value && typeof value === 'object' && !Array.isArray(value)
@@ -250,6 +269,11 @@ export function normalizeGeneratedMediaQualityReview(
     formatIssue,
     durationIssue,
     unknownFormatIssue,
+    referenceRequired && (referencePreservationScore ?? 0) < thresholds.referencePreservation
+      ? input.sourceLockedReference
+        ? 'The source-locked edit did not preserve the visible source identity clearly enough; inspect the crop, overlays, and protected subject before attachment.'
+        : 'The protected reference subject was not preserved closely enough for attachment.'
+      : '',
     input.requireProductAdStructure && !advertisingStructure
       ? `The video does not visibly deliver the required advertising sequence: hook, ${requiresRealProductHero ? 'product' : 'hero-subject'} reveal, benefit moment, and deliberate end frame.`
       : '',
@@ -403,6 +427,13 @@ CONCEPT-FILM REVIEW CONTRACT:
 ` : ''}
 
 For reference jobs, every text/UI element already visible inside the supplied source is approved source evidence when faithfully preserved; do not require it to be repeated in APPROVED MOTION-DESIGN OVERLAYS. Exact text in APPROVED MOTION-DESIGN OVERLAYS is also allowed when it is cleanly typeset. Padding the preserved source inside a platform-safe canvas and typesetting approved overlays outside it are intentional and must not reduce reference-preservation scoring. "noNewRasterText" means no additional or corrupted text outside the preserved source and those exact overlays.
+${input.sourceLockedReference ? `
+SOURCE-LOCKED EDIT CONTRACT:
+- NEXUS built this output only from the supplied source pixels with deterministic editorial operations; no generative-video provider created or replaced source imagery.
+- Timing changes, cuts within the verified source window, platform crop or padding, subtle zoom/pan, colour correction, transitions, and exact approved vector overlays are intentional and must not lower referencePreservationScore.
+- Keep the ${activeThresholds.referencePreservation}/100 preservation minimum. Score below it only when a supplied person, product, screen, or distinctive source identity is visibly distorted, replaced, made unrecognizable, or materially lost behind a bad crop/overlay.
+- If scoring below that minimum, name the exact visible preservation defect in issues. Never return an unexplained below-minimum score.
+` : ''}
 ${input.allowAdvertisingSceneTransformation ? `
 PRODUCT-TO-AD TRANSFORMATION CONTRACT:
 - Replacing or upgrading the surrounding background, setting, lighting, crop, and composition is explicitly required and must not be reported as an issue.
@@ -489,13 +520,23 @@ ${input.requireProductAdStructure && input.requiresRealProductHero === false ? '
 
   let parsed = await requestReview()
   if (generatedMediaQualityNeedsConsistencyRepair(parsed, input)) {
+    const parsedRecord = parsed as Record<string, unknown>
+    const scoreScale = providerScoreScale(parsedRecord)
+    const sourceLockedReferenceRepair = input.sourceLockedReference === true
+      && referenceUrls.length > 0
+      && score(parsedRecord.referencePreservationScore, scoreScale) < activeThresholds.referencePreservation
+      && !boundedIssues(parsedRecord.issues).some(issue => (
+        /(?:replaced|redesigned|relabelled|recolored|recoloured|duplicated|distorted|unrecognizable|identity|important subject|protected subject)/i.test(issue)
+      ))
     messages.push({
       role: 'assistant',
       content: JSON.stringify(parsed),
     })
     messages.push({
       role: 'user',
-      content: `Your paidSocialAdReadiness=true verdict conflicts with at least one required ${activeQualityStandard} commercial minimum. Re-inspect the same visible frames once and return the complete JSON object again. Do not inflate a score merely to pass: either correct a score when the visible evidence supports the active rubric, or set paidSocialAdReadiness=false and name the concrete visible defect.`,
+      content: sourceLockedReferenceRepair
+        ? `Your source-locked referencePreservationScore is below the required ${activeThresholds.referencePreservation}/100 but issues names no visible identity or pixel-integrity defect. Re-inspect the same source and output frames once. Approved crop, timing, zoom, padding, transitions, colour correction, and exact vector overlays are not reference changes. Do not inflate the score merely to pass: either correct it when the visible source identity is preserved, or keep it below the minimum and name the exact visible distortion, replacement, unrecognizable identity, or material crop/overlay loss in issues. Return the complete JSON object again.`
+        : `Your paidSocialAdReadiness=true verdict conflicts with at least one required ${activeQualityStandard} commercial minimum. Re-inspect the same visible frames once and return the complete JSON object again. Do not inflate a score merely to pass: either correct a score when the visible evidence supports the active rubric, or set paidSocialAdReadiness=false and name the concrete visible defect.`,
     })
     parsed = await requestReview()
   }

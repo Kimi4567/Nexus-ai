@@ -99,6 +99,26 @@ describe('professional video timeline', () => {
     expect(validateProfessionalVideoTimeline(timeline, caption)).toEqual({ ok: true, issues: [] })
   })
 
+  it('separates an exact audience lead from the service action instead of repeating it twice', () => {
+    const caption = 'وسطاء العقارات في دبي، ابدأوا بمراجعة مسودات حملاتكم العقارية خطوة بخطوة. أرسلوا لنا صور وبيانات عقاراتكم لتحصلوا على محتوى مخصص.'
+    const timeline = buildProfessionalVideoTimeline({
+      copy: buildMotionDesignCopy({
+        brandName: 'Aster Property Marketing',
+        caption,
+      }),
+      caption,
+      sourceMatchesTarget: true,
+    })
+
+    expect(timeline.copy).toMatchObject({
+      eyebrow: 'وسطاء العقارات في دبي',
+      headline: 'ابدأوا بمراجعة مسودات حملاتكم العقارية',
+      supporting: 'أرسلوا لنا صور وبيانات عقاراتكم لتحصلوا على محتوى مخصص',
+    })
+    expect(timeline.copy.eyebrow).not.toBe(timeline.copy.headline)
+    expect(validateProfessionalVideoTimeline(timeline, caption)).toEqual({ ok: true, issues: [] })
+  })
+
   it('fails closed when a layer introduces an unsupported claim or number', () => {
     const caption = 'داخل دبي فقط خلال 48 ساعة.'
     const timeline = buildProfessionalVideoTimeline({
