@@ -112,7 +112,7 @@ export function extractTextFreeSceneFromCreativeDirection(value?: string | null)
 
   const usingClause = clean.match(/\busing\s+(.+?)(?=\.\s*(?:use|do|avoid|exclude)\b|$)/i)?.[1]?.trim()
   if (usingClause && !NON_RASTER_SAFE_CONCEPT_PATTERN.test(usingClause)) {
-    return `${usingClause}, arranged as one clear editorial hero composition with generous negative space`
+    return `${usingClause}, with every specifically named object clearly visible and recognizable, arranged as one clear editorial hero composition with generous negative space`
   }
 
   // Some reviewed briefs state the tangible subject directly instead of using
@@ -126,7 +126,7 @@ export function extractTextFreeSceneFromCreativeDirection(value?: string | null)
   )?.[1]?.trim()
   if (!directScene || NON_RASTER_SAFE_CONCEPT_PATTERN.test(directScene)) return null
 
-  return `${directScene}, arranged as one clear editorial hero composition with generous negative space`
+  return `${directScene}, with every specifically named object clearly visible and recognizable, arranged as one clear editorial hero composition with generous negative space`
 }
 
 /**
@@ -355,6 +355,14 @@ const INDUSTRY_STYLES: Record<string, IndustryStyle> = {
     atmosphere:  'polished brand environment with clear visual hierarchy, premium feel, and clean negative space for typography',
     benchmark:   'Fortune 500 brand advertising quality',
   },
+}
+
+const REVIEWED_CREATIVE_DIRECTION_STYLE: IndustryStyle = {
+  photography: 'disciplined professional editorial advertising that follows the reviewed central scene literally, preserves every specifically named object, and omits unrelated industry archetypes',
+  lighting: 'controlled commercial lighting that supports the reviewed subject without changing, replacing, or obscuring it',
+  mood: 'faithful, clear, purposeful, trustworthy, reviewable',
+  atmosphere: 'only the environment and tangible objects required by the reviewed scene, with clean professional styling and no unrelated lifestyle, property, product, or technology metaphor',
+  benchmark: 'high-end editorial campaign production with strict creative-brief fidelity',
 }
 
 // ─── Color mood parser ────────────────────────────────────────────────────────
@@ -666,7 +674,7 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
 
   // 3. Get industry style
   const category = detectBrandCategory(ctx)
-  const style    = INDUSTRY_STYLES[category] || INDUSTRY_STYLES.general
+  const industryStyle = INDUSTRY_STYLES[category] || INDUSTRY_STYLES.general
 
   // 4. Parse brand color mood
   const rawPalette = Array.isArray(ctx.colorPalette)
@@ -680,7 +688,7 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
 
   // 5. No text → use brand-level prompt (no concept extraction needed)
   if (!conceptText.trim()) {
-    const prompt = buildBrandLevelPrompt(ctx, colorMood, style, language)
+    const prompt = buildBrandLevelPrompt(ctx, colorMood, industryStyle, language)
     return { prompt, language }
   }
 
@@ -697,7 +705,16 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
     ...extractedConcept,
     centralElement: reviewedDirectionScene
       || normalizeTextFreeCentralElement(extractedConcept.centralElement, category, conceptText),
+    ...(reviewedDirectionScene
+      ? {
+          emotion: 'clear, careful, trustworthy',
+          visualMood: 'Literal, disciplined execution of the reviewed direction with no unrelated category-level lifestyle, property, product, or technology metaphors',
+        }
+      : {}),
   }
+  const style = reviewedDirectionScene
+    ? REVIEWED_CREATIVE_DIRECTION_STYLE
+    : industryStyle
 
   if (process.env.NODE_ENV !== 'production') {
     console.log(`[imageGen] headline="${concept.headline}" | scene="${concept.centralElement.slice(0, 80)}..."`)

@@ -205,10 +205,16 @@ describe('imageGen prompt contract', () => {
 
     expect(concept?.centralElement).toContain('generic property-marketing campaign documents')
     expect(concept?.centralElement).toContain('magnifying glass')
+    expect(concept?.centralElement).toContain('every specifically named object clearly visible')
     expect(prompt).toContain('neutral desk materials')
+    expect(prompt).toContain('strict creative-brief fidelity')
+    expect(prompt).toContain('no unrelated category-level lifestyle, property, product, or technology metaphors')
     expect(prompt).not.toContain('luxury apartment living room')
     expect(prompt).not.toContain('floor-to-ceiling windows')
     expect(prompt).not.toContain('city skyline')
+    expect(prompt).not.toContain('Aspirational luxury real estate')
+    expect(prompt).not.toContain('premium software campaign')
+    expect(prompt).not.toContain('luminous physical connection nodes')
   })
 
   it('brand-level fallback stays background-only and does not ask for text or logos', async () => {
