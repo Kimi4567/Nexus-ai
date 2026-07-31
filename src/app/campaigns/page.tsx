@@ -876,7 +876,7 @@ export default function CampaignsPage() {
                   {[
                     copy('وقت النشر المقترح يظهر بعد ربط المنصات ووجود بيانات.', 'A suggested posting time appears after platform data exists.'),
                     copy('فرص المحتوى تعتمد على الاستراتيجية وسجلات Content Hub.', 'Content opportunities depend on strategy and Content Hub records.'),
-                    copy('تعلم الأداء يتطلب analyticsData حقيقية.', 'Performance learning requires real analyticsData.'),
+                    copy('تعلّم الأداء يتطلب تحليلات حقيقية موثوقة.', 'Performance learning requires trusted analytics.'),
                   ].map((note) => (
                     <div key={note} className="rounded-[14px] border border-[#edf1f8] bg-[#fbfcff] p-3 text-xs leading-5 text-[#5f6d89]">
                       {note}

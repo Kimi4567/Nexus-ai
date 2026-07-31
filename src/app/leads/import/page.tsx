@@ -111,7 +111,7 @@ export default function LeadImportPage() {
       <main dir={dir} className="nx-os-page min-h-screen bg-[#F6F8FC] px-4 py-5 sm:px-6 lg:px-8">
         <LuxuryWorkspaceHeader
           pageTitle={ar ? 'استيراد العملاء المحتملين' : 'Lead CSV import'}
-          pageSubtitle={ar ? 'راجع الملف أولًا، ثم استورد الصفوف الصالحة فقط داخل Workspace الحالي.' : 'Validate first, then import only valid rows into the current workspace.'}
+          pageSubtitle={ar ? 'راجع الملف أولًا، ثم استورد الصفوف الصالحة فقط داخل مساحة العمل الحالية.' : 'Validate first, then import only valid rows into the current workspace.'}
           primaryHref="/leads"
           primaryLabel={ar ? 'العودة للمسار' : 'Back to pipeline'}
           secondaryHref={null}
@@ -122,7 +122,7 @@ export default function LeadImportPage() {
           <section className="nx-os-card mx-auto max-w-3xl p-7 text-center">
             <ShieldCheck className="mx-auto h-10 w-10 text-[#5E63FF]" />
             <h2 className="mt-4 text-xl font-black text-[#0B1028]">{ar ? 'CRM غير مفعّل في هذه البيئة' : 'CRM is not enabled in this environment'}</h2>
-            <p className="mt-2 text-sm leading-7 text-slate-500">{ar ? 'لن نقرأ أو نكتب أي بيانات حتى تطبيق migrations واختبارات العزل.' : 'No data will be read or written until migrations and isolation checks pass.'}</p>
+            <p className="mt-2 text-sm leading-7 text-slate-500">{ar ? 'لن نقرأ أو نكتب أي بيانات حتى اكتمال ترحيل قاعدة البيانات واختبارات العزل.' : 'No data will be read or written until migrations and isolation checks pass.'}</p>
           </section>
         ) : (
           <div className="grid gap-4 xl:grid-cols-[1.35fr_0.65fr]">

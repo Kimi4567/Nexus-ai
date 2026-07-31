@@ -551,8 +551,8 @@ export default function AnalyticsPage() {
                 </div>
                 <p className="mt-1 max-w-4xl text-[12px] font-bold leading-6 text-[#6f7b96]">
                   {ar
-                    ? 'يفصل NEXUS بين سجل التشغيل ونتائج المنصات. لا يظهر KPI أو ROAS أو تعلّم أداء قبل وصول analyticsData أو مقاييس موثوقة.'
-                    : 'NEXUS separates operating records from platform outcomes. KPI, ROAS, and performance learning stay hidden until analyticsData or trusted metrics arrive.'}
+                    ? 'يفصل NEXUS بين سجل التشغيل ونتائج المنصات. لا تظهر مؤشرات الأداء أو العائد على الإنفاق أو تعلّم الأداء قبل وصول تحليلات أو مقاييس موثوقة.'
+                    : 'NEXUS separates operating records from platform outcomes. KPIs, ROAS, and performance learning stay hidden until trusted analytics or metrics arrive.'}
                 </p>
               </div>
             </div>

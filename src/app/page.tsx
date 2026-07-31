@@ -513,7 +513,7 @@ export default function LandingPage() {
       title: ar ? 'العملاء المحتملون والمتابعة' : 'Leads & follow-up',
       body: ar ? 'نظّم العملاء والمهام ورسائل المتابعة من نفس مساحة العمل.' : 'Organize leads, tasks, and lifecycle messages in the same workspace.',
       points: ar
-        ? ['CRM للعملاء المحتملين', 'مهام وتنبيهات', 'مسودات Lifecycle بموافقات']
+        ? ['CRM للعملاء المحتملين', 'مهام وتنبيهات', 'مسودات دورة المتابعة بموافقات']
         : ['Lead CRM', 'Tasks and alerts', 'Approval-gated lifecycle drafts'],
       gate: ar ? 'موافقة وإرسال' : 'SEND-GATED',
     },

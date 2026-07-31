@@ -3199,9 +3199,24 @@ export default function ContentHubPage() {
   if (!campaign) {
     return (
       <AppShell>
-        <div className="flex min-h-[55vh] items-center justify-center px-6 text-center text-slate-500">
-          {isAr ? 'هذه الحملة غير موجودة أو لم تعد متاحة.' : 'This campaign does not exist or is no longer available.'}
-        </div>
+        <main dir={isAr ? 'rtl' : 'ltr'} className="nx-os-page flex min-h-[65vh] items-center justify-center px-5 py-10">
+          <section className="nx-os-card w-full max-w-xl p-8 text-center sm:p-10">
+            <span aria-hidden="true" className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-2xl font-black text-amber-700">!</span>
+            <h1 className="mt-5 text-2xl font-black text-[#0B1028]">
+              {isAr ? 'مساحة إنتاج الحملة غير متاحة' : 'Campaign production workspace unavailable'}
+            </h1>
+            <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-slate-500">
+              {isAr ? 'قد تكون الحملة حُذفت أو لا تنتمي إلى مساحة العمل الحالية. لم يتم إنشاء محتوى أو خصم أي كريديت.' : 'The campaign may have been removed or may not belong to the current workspace. No content was created and no credits were charged.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push('/campaigns')}
+              className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-[#101A4D] px-5 text-sm font-black text-white"
+            >
+              {isAr ? 'العودة إلى الحملات' : 'Back to campaigns'}
+            </button>
+          </section>
+        </main>
       </AppShell>
     )
   }

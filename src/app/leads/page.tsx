@@ -280,7 +280,7 @@ export default function LeadsPage() {
               {[
                 copy('عزل كامل لكل Workspace', 'Workspace isolation'),
                 copy('منع التكرار بالبريد والهاتف', 'Email/phone deduplication'),
-                copy('Consent موثق وليس مفترضًا', 'Documented, never inferred consent'),
+                copy('موافقة موثقة وليست مفترضة', 'Documented, never inferred consent'),
               ].map(item => <div key={item} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black text-slate-700">{item}</div>)}
             </div>
             <p className="mt-5 text-[11px] font-bold text-slate-500">{copy('استقبال العملاء: غير مفعّل · الإرسال التلقائي: متوقف', 'Lead intake: inactive · automated outreach: off')}</p>
@@ -329,8 +329,8 @@ export default function LeadsPage() {
                     {campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}
                   </select>
                   <select value={form.consentStatus} onChange={event => setForm({ ...form, consentStatus: event.target.value })} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700">
-                    <option value="UNKNOWN">{copy('Consent غير معروف', 'Consent unknown')}</option>
-                    <option value="GRANTED">{copy('Consent موثق', 'Consent granted')}</option>
+                    <option value="UNKNOWN">{copy('حالة الموافقة غير معروفة', 'Consent unknown')}</option>
+                    <option value="GRANTED">{copy('موافقة موثقة', 'Consent granted')}</option>
                     <option value="DENIED">{copy('رفض التواصل', 'Consent denied')}</option>
                   </select>
                   <input value={form.consentSource} onChange={event => setForm({ ...form, consentSource: event.target.value })} placeholder={copy('مصدر الموافقة إن وُجد', 'Consent evidence/source')} disabled={form.consentStatus !== 'GRANTED'} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none disabled:bg-slate-100 disabled:text-slate-400" />
@@ -408,7 +408,7 @@ export default function LeadsPage() {
             </section>
 
             <section className="mt-4 grid gap-3 md:grid-cols-3">
-              <div className="nx-os-card p-4"><ShieldCheck className="h-5 w-5 text-[#5E63FF]" /><p className="mt-3 text-sm font-black text-[#0B1028]">{copy('حدود التواصل', 'Outreach boundary')}</p><p className="mt-1 text-xs leading-6 text-slate-500">{copy('Consent المسجل دليل يدوي فقط. هذه النسخة لا ترسل أي تواصل.', 'Recorded consent is manual evidence only. This release sends no outreach.')}</p></div>
+              <div className="nx-os-card p-4"><ShieldCheck className="h-5 w-5 text-[#5E63FF]" /><p className="mt-3 text-sm font-black text-[#0B1028]">{copy('حدود التواصل', 'Outreach boundary')}</p><p className="mt-1 text-xs leading-6 text-slate-500">{copy('الموافقة المسجلة دليل يدوي فقط. هذه النسخة لا ترسل أي تواصل.', 'Recorded consent is manual evidence only. This release sends no outreach.')}</p></div>
               <div className="nx-os-card p-4"><Database className="h-5 w-5 text-[#5E63FF]" /><p className="mt-3 text-sm font-black text-[#0B1028]">{copy('مصدر الحقيقة', 'Source of truth')}</p><p className="mt-1 text-xs leading-6 text-slate-500">{copy('كل Lead معزول داخل Workspace ومربوط اختياريًا بحملة حقيقية.', 'Every lead is workspace-isolated and optionally tied to a real campaign.')}</p></div>
               <Link href="/analytics" className="nx-os-card group p-4"><ArrowUpRight className="h-5 w-5 text-[#5E63FF] transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" /><p className="mt-3 text-sm font-black text-[#0B1028]">{copy('القياس التالي', 'Next measurement layer')}</p><p className="mt-1 text-xs leading-6 text-slate-500">{copy('الربط بين Lead وconversion يعتمد على المصدر المسجل وWON المؤكد يدويًا؛ أرقام المنصات تظل طبقة منفصلة.', 'Lead-to-conversion attribution uses the recorded source and manually confirmed WON outcome; platform metrics remain a separate layer.')}</p></Link>
             </section>

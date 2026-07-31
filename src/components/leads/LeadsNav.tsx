@@ -10,7 +10,7 @@ const ITEMS = [
   { href: '/leads/import', icon: FileUp, ar: 'استيراد CSV', en: 'CSV import' },
   { href: '/leads/forms', icon: FormInput, ar: 'نماذج الاستقبال', en: 'Capture forms' },
   { href: '/leads/alerts', icon: BellRing, ar: 'تنبيهات SLA', en: 'SLA alerts' },
-  { href: '/leads/lifecycle', icon: MailCheck, ar: 'Lifecycle', en: 'Lifecycle' },
+  { href: '/leads/lifecycle', icon: MailCheck, ar: 'دورة المتابعة', en: 'Lifecycle' },
 ] as const
 
 export function LeadsNav() {

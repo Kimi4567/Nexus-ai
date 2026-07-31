@@ -8,6 +8,7 @@ import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { applyBrandOverlayFromProfile, type OverlayPlatform } from '@/lib/cloudinaryOverlay'
 import { useRouter } from 'next/navigation'
 import WorkspaceRouteLoading from '@/components/WorkspaceRouteLoading'
+import { Images } from 'lucide-react'
 
 // ── Upload limits ──────────────────────────────────────────────────────────────
 // Local path goes through Next.js JSON body: file is base64-encoded → 33% overhead.
@@ -974,7 +975,7 @@ export default function MediaLibraryPage() {
 
           <div className="nx-os-action-strip mb-6">
             <div className="flex min-w-0 items-center gap-3">
-              <span className="nx-os-icon-box" aria-hidden="true">🖼️</span>
+              <span className="nx-os-icon-box" aria-hidden="true"><Images className="h-5 w-5" /></span>
               <div className="min-w-0">
                 <p className="text-[13px] font-black text-[#111b3f]">{locale === 'ar' ? `${media.length} أصل ظاهر` : `${media.length} visible assets`}</p>
                 <p className="text-[11px] font-semibold text-[#7b87a3]">{locale === 'ar' ? 'الإرفاق النهائي يتم من مركز المحتوى.' : 'Final attachment happens in Content Hub.'}</p>

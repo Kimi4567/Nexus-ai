@@ -145,7 +145,7 @@ export default function LeadCaptureFormsPage() {
       <main dir={dir} className="nx-os-page min-h-screen bg-[#F6F8FC] px-4 py-5 sm:px-6 lg:px-8">
         <LuxuryWorkspaceHeader
           pageTitle={ar ? 'نماذج استقبال العملاء' : 'Lead capture forms'}
-          pageSubtitle={ar ? 'أنشئ نقطة استقبال مرتبطة بحملة، مع consent صريح وحدود تشغيل ظاهرة.' : 'Create campaign-linked intake with explicit consent and visible operating boundaries.'}
+          pageSubtitle={ar ? 'أنشئ نقطة استقبال مرتبطة بحملة، مع موافقة صريحة وحدود تشغيل ظاهرة.' : 'Create campaign-linked intake with explicit consent and visible operating boundaries.'}
           primaryHref={ready ? null : '/leads'}
           secondaryHref="/leads"
           secondaryLabel={ar ? 'المسار' : 'Pipeline'}
@@ -154,12 +154,12 @@ export default function LeadCaptureFormsPage() {
         {notice ? <div aria-live="polite" className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-bold ${notice.tone === 'success' ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 'border-rose-100 bg-rose-50 text-rose-700'}`}>{notice.text}</div> : null}
 
         {!ready ? (
-          <section className="nx-os-card mx-auto max-w-3xl p-7 text-center"><ShieldCheck className="mx-auto h-10 w-10 text-[#5E63FF]" /><h2 className="mt-4 text-xl font-black text-[#0B1028]">{ar ? 'CRM غير مفعّل في هذه البيئة' : 'CRM is not enabled in this environment'}</h2><p className="mt-2 text-sm leading-7 text-slate-500">{ar ? 'النماذج العامة تبقى مغلقة حتى نجاح migration والعزل.' : 'Public forms stay closed until migration and isolation verification pass.'}</p></section>
+          <section className="nx-os-card mx-auto max-w-3xl p-7 text-center"><ShieldCheck className="mx-auto h-10 w-10 text-[#5E63FF]" /><h2 className="mt-4 text-xl font-black text-[#0B1028]">{ar ? 'CRM غير مفعّل في هذه البيئة' : 'CRM is not enabled in this environment'}</h2><p className="mt-2 text-sm leading-7 text-slate-500">{ar ? 'النماذج العامة تبقى مغلقة حتى اكتمال ترحيل قاعدة البيانات واختبارات العزل.' : 'Public forms stay closed until migration and isolation verification pass.'}</p></section>
         ) : (
           <>
             <section className="nx-os-card p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div><h2 className="text-base font-black text-[#0B1028]">{ar ? 'نقاط استقبال حقيقية' : 'Real intake points'}</h2><p className="mt-1 text-xs leading-6 text-slate-500">{ar ? 'كل رابط يكتب فقط داخل Workspace ولا يكشف أي Lead.' : 'Every link is write-only for its workspace and never exposes a lead.'}</p></div>
+                <div><h2 className="text-base font-black text-[#0B1028]">{ar ? 'نقاط استقبال حقيقية' : 'Real intake points'}</h2><p className="mt-1 text-xs leading-6 text-slate-500">{ar ? 'كل رابط يضيف البيانات داخل مساحة العمل فقط، ولا يكشف سجلات العملاء.' : 'Every link is write-only for its workspace and never exposes a lead.'}</p></div>
                 <button type="button" onClick={() => setShowCreate(current => !current)} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#101A4D] px-4 text-xs font-black text-white"><Plus className="h-4 w-4" />{showCreate ? (ar ? 'إغلاق' : 'Close') : (ar ? 'نموذج جديد' : 'New form')}</button>
               </div>
               {showCreate ? (
@@ -167,9 +167,9 @@ export default function LeadCaptureFormsPage() {
                   <input required value={form.name} onChange={event => setForm(current => ({ ...current, name: event.target.value }))} placeholder={ar ? 'اسم داخلي للنموذج' : 'Internal form name'} maxLength={120} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-400" />
                   <input required value={form.title} onChange={event => setForm(current => ({ ...current, title: event.target.value }))} placeholder={ar ? 'العنوان الذي يراه العميل' : 'Public form title'} maxLength={160} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-400" />
                   <textarea value={form.description} onChange={event => setForm(current => ({ ...current, description: event.target.value }))} placeholder={ar ? 'وصف مختصر' : 'Short description'} maxLength={1200} className="min-h-24 rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none focus:border-indigo-400" />
-                  <textarea value={form.consentStatement} onChange={event => setForm(current => ({ ...current, consentStatement: event.target.value }))} placeholder={ar ? 'نص الموافقة الاختياري؛ بدونه يظل consent UNKNOWN' : 'Optional consent statement; without it consent stays UNKNOWN'} maxLength={1200} className="min-h-24 rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none focus:border-indigo-400" />
+                  <textarea value={form.consentStatement} onChange={event => setForm(current => ({ ...current, consentStatement: event.target.value }))} placeholder={ar ? 'نص الموافقة الاختياري؛ بدونه تظل حالة الموافقة غير معروفة' : 'Optional consent statement; without it consent stays UNKNOWN'} maxLength={1200} className="min-h-24 rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none focus:border-indigo-400" />
                   <select value={form.campaignId} onChange={event => setForm(current => ({ ...current, campaignId: event.target.value }))} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700"><option value="">{ar ? 'بدون حملة' : 'No campaign'}</option>{campaigns.map(campaign => <option key={campaign.id} value={campaign.id}>{campaign.name}</option>)}</select>
-                  <input value={form.allowedOrigin} onChange={event => setForm(current => ({ ...current, allowedOrigin: event.target.value }))} placeholder="https://example.com (optional origin)" inputMode="url" className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-400" />
+                  <input value={form.allowedOrigin} onChange={event => setForm(current => ({ ...current, allowedOrigin: event.target.value }))} placeholder={ar ? 'https://example.com — نطاق استضافة اختياري' : 'https://example.com (optional origin)'} inputMode="url" className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-400" />
                   <button disabled={saving} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#5E63FF] px-4 text-xs font-black text-white disabled:opacity-50 md:col-span-2">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <FormInput className="h-4 w-4" />}{ar ? 'إنشاء النموذج' : 'Create form'}</button>
                 </form>
               ) : null}
@@ -183,7 +183,7 @@ export default function LeadCaptureFormsPage() {
                     <span className={`rounded-lg px-2.5 py-1 text-[11px] font-black ${item.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : item.status === 'PAUSED' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>{item.status}</span>
                   </div>
                   <h3 className="mt-4 text-sm font-black text-slate-800">{item.title}</h3>
-                  <div className="mt-4 grid grid-cols-2 gap-2"><div className="rounded-xl bg-slate-50 p-3"><p className="text-xl font-black text-[#0B1028]">{item.submissionCount}</p><p className="text-[11px] font-bold text-slate-500">{ar ? 'إرسال مسجل' : 'Recorded submissions'}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className="truncate text-xs font-black text-[#0B1028]">{item.allowedOrigin || (ar ? 'مستضاف فقط' : 'Hosted link')}</p><p className="mt-1 text-[11px] font-bold text-slate-500">Origin</p></div></div>
+                  <div className="mt-4 grid grid-cols-2 gap-2"><div className="rounded-xl bg-slate-50 p-3"><p className="text-xl font-black text-[#0B1028]">{item.submissionCount}</p><p className="text-[11px] font-bold text-slate-500">{ar ? 'إرسال مسجل' : 'Recorded submissions'}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className="truncate text-xs font-black text-[#0B1028]">{item.allowedOrigin || (ar ? 'مستضاف فقط' : 'Hosted link')}</p><p className="mt-1 text-[11px] font-bold text-slate-500">{ar ? 'نطاق الاستضافة' : 'Origin'}</p></div></div>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <button type="button" onClick={() => copyPath(item.publicPath)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-[11px] font-black text-slate-600"><Copy className="h-3.5 w-3.5" />{ar ? 'نسخ الرابط' : 'Copy link'}</button>
                     <Link href={item.publicPath} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-3 text-[11px] font-black text-slate-600"><ExternalLink className="h-3.5 w-3.5" />{ar ? 'معاينة' : 'Preview'}</Link>

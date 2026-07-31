@@ -106,4 +106,48 @@ describe('visual audit regressions', () => {
     expect(publicForm).toContain('<label aria-hidden="true" className="sr-only">Website')
     expect(publicForm).not.toContain('-start-[9999px]')
   })
+
+  it('localizes the Arabic CRM journey instead of exposing internal English states', () => {
+    const nav = source('src/components/leads/LeadsNav.tsx')
+    const leads = source('src/app/leads/page.tsx')
+    const forms = source('src/app/leads/forms/page.tsx')
+    const lifecycle = source('src/app/leads/lifecycle/page.tsx')
+
+    expect(nav).toContain("ar: 'دورة المتابعة'")
+    expect(nav).not.toContain("ar: 'Lifecycle'")
+    expect(leads).toContain('موافقة موثقة وليست مفترضة')
+    expect(forms).toContain('داخل مساحة العمل فقط')
+    expect(lifecycle).toContain("pageTitle={ar ? 'رسائل دورة المتابعة'")
+    expect(lifecycle).toContain('messageStatusLabel(message.status, ar)')
+    expect(lifecycle).toContain('localizedLabel(DELIVERY_BLOCKER_LABELS, blocker, ar)')
+    expect(lifecycle).not.toContain('APPROVED COPY')
+    expect(lifecycle).not.toContain('>DELIVERY BLOCKED<')
+  })
+
+  it('keeps internal analytics keys out of explanatory product copy', () => {
+    const analytics = source('src/app/analytics/page.tsx')
+    const scoreHistory = source('src/app/brand/score-history/page.tsx')
+    const campaigns = source('src/app/campaigns/page.tsx')
+
+    expect(analytics).not.toContain('until analyticsData')
+    expect(scoreHistory).not.toContain('توفر analyticsData')
+    expect(scoreHistory).toContain('changeCountLabel(milestones.length, ar)')
+    expect(campaigns).not.toContain('requires real analyticsData')
+  })
+
+  it('provides a truthful recovery action when a content workspace is missing', () => {
+    const contentHub = source('src/app/campaigns/[id]/content-hub/page.tsx')
+
+    expect(contentHub).toContain('مساحة إنتاج الحملة غير متاحة')
+    expect(contentHub).toContain('No content was created and no credits were charged.')
+    expect(contentHub).toContain("router.push('/campaigns')")
+  })
+
+  it('uses the shared icon system for the media library summary', () => {
+    const media = source('src/app/media/page.tsx')
+
+    expect(media).toContain("import { Images } from 'lucide-react'")
+    expect(media).toContain('<Images className="h-5 w-5" />')
+    expect(media).not.toContain('aria-hidden="true">🖼️')
+  })
 })
