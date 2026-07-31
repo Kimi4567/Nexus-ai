@@ -55,6 +55,13 @@ export function splitMotionDesignHookMetric(hook: string): { lead: string; metri
   return metric ? { lead, metric } : null
 }
 
+export function professionalMotionDesignHeadlineLines(
+  headline: string,
+  vertical = true,
+): string[] {
+  return wrapVideoOverlayText(headline, vertical ? 16 : 28, vertical ? 3 : 2)
+}
+
 export async function professionalMotionDesignOverlaySvgs(input: {
   timeline: ProfessionalVideoTimeline
   width?: number
@@ -130,19 +137,22 @@ export async function professionalMotionDesignOverlaySvgs(input: {
   createElement('div', {
     style: {
       display: 'flex',
-      maxWidth: '100%',
+      width: '100%',
       padding: `${Math.round(shortEdge * 0.016)}px ${Math.round(shortEdge * 0.03)}px`,
+      boxSizing: 'border-box',
       borderRadius: Math.round(shortEdge * 0.018),
       backgroundColor: palette.paper,
       color: palette.ink,
       boxShadow: `0 ${Math.round(shortEdge * 0.02)}px ${Math.round(shortEdge * 0.07)}px rgba(0,0,0,0.30)`,
     },
-  }, videoOverlayInlineText(copy.headline, {
-    rtl,
-    size: Math.round(shortEdge * (vertical ? 0.105 : 0.082)),
-    color: palette.ink,
-    gap: Math.max(14, Math.round(shortEdge * 0.026)),
-  })))), width, height)
+  }, videoOverlayTextLines(
+    professionalMotionDesignHeadlineLines(copy.headline, vertical),
+    {
+      rtl,
+      size: Math.round(shortEdge * (vertical ? 0.062 : 0.058)),
+      color: palette.ink,
+    },
+  )))), width, height)
 
   const hook = await renderPathOnlyVideoOverlay(createElement('div', {
     style: {
@@ -244,11 +254,11 @@ export async function professionalMotionDesignOverlaySvgs(input: {
       justifyContent: 'center',
       borderBottom: `${Math.max(3, Math.round(shortEdge * 0.006))}px solid ${palette.accent}`,
     },
-  }, videoOverlayInlineText(copy.cta, {
+  }, videoOverlayTextLines([copy.cta], {
     rtl,
     size: Math.round(shortEdge * 0.043),
     color: '#FFFFFF',
-    gap: Math.max(10, Math.round(shortEdge * 0.018)),
+    align: 'center',
   })))), width, height)
 
   return { intro, hook, end }

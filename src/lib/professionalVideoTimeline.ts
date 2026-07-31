@@ -1,6 +1,6 @@
 import type { MotionDesignCopy } from '@/lib/motionDesignAd'
 
-export const PROFESSIONAL_VIDEO_TIMELINE_VERSION = '2026-07-v3'
+export const PROFESSIONAL_VIDEO_TIMELINE_VERSION = '2026-07-v4'
 export const PROFESSIONAL_VIDEO_FRAME_RATE = 24
 export const PROFESSIONAL_VIDEO_DURATION_SECONDS = 6
 export const PROFESSIONAL_VIDEO_SAFE_SOURCE_SECONDS = 3
@@ -184,7 +184,7 @@ export function buildProfessionalVideoTimeline(input: {
       ? 'SERVICE_PROMISE'
       : 'BRAND_STORY'
 
-  const headline = clean(price || duration || input.copy.hook, 34)
+  const headline = clean(price || duration || input.copy.hook, 42)
   const audienceLead = exactAudienceLead(caption, [headline])
   const eyebrow = clean(
     template === 'OFFER_REVEAL'
@@ -297,7 +297,7 @@ export function validateProfessionalVideoTimeline(
   const copyLimits: Array<[string, number]> = [
     [timeline.copy.brand, 28],
     [timeline.copy.eyebrow, 42],
-    [timeline.copy.headline, 34],
+    [timeline.copy.headline, 42],
     [timeline.copy.supporting || '', 54],
     [timeline.copy.cta, 24],
   ]

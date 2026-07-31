@@ -91,7 +91,7 @@ describe('professional video timeline', () => {
       copy: {
         brand: 'Aster Property Marketing',
         eyebrow: 'وسطاء العقارات',
-        headline: 'دعونا نحوّل صور عقاراتكم إلى',
+        headline: 'دعونا نحوّل صور عقاراتكم إلى مسودات',
         supporting: 'استراتيجيات مدروسة تبنيها على بياناتكم',
         cta: 'عرض التفاصيل',
       },

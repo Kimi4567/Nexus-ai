@@ -2998,8 +2998,12 @@ export default function ContentHubPage() {
         setVideoReferenceMediaIds([])
         setMotionDesignSourceMediaId(null)
         setSuccessMsg(isAr
-          ? `تم إنتاج إعلان Motion Design مدته ${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ من الفيديو الأصلي وربطه للمراجعة. تم خصم ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت، ولم يُستخدم أي مزود فيديو توليدي. لا نشر ولا جدولة.`
-          : `An ${MOTION_DESIGN_DURATION_SECONDS}-second source-locked Motion Design ad was produced and attached for review. ${CONTENT_HUB_MOTION_DESIGN_COST} credits were charged; no generative-video provider was used. Nothing was published or scheduled.`)
+          ? (data.replacementRefunded
+            ? `تم استبدال نسخة Typography المعيبة وربط النسخة المصححة للمراجعة. استُردت ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت للنسخة السابقة وخُصمت ${CONTENT_HUB_MOTION_DESIGN_COST} للنسخة الجديدة؛ صافي تكلفة الإصلاح صفر. لا نشر ولا جدولة.`
+            : `تم إنتاج إعلان Motion Design مدته ${MOTION_DESIGN_DURATION_SECONDS} ثوانٍ من الفيديو الأصلي وربطه للمراجعة. تم خصم ${CONTENT_HUB_MOTION_DESIGN_COST} كريديت، ولم يُستخدم أي مزود فيديو توليدي. لا نشر ولا جدولة.`)
+          : (data.replacementRefunded
+            ? `The defective typography master was replaced and the corrected version was attached for review. ${CONTENT_HUB_MOTION_DESIGN_COST} credits were restored for the prior master and ${CONTENT_HUB_MOTION_DESIGN_COST} charged for the replacement, so the repair cost is net zero. Nothing was published or scheduled.`
+            : `An ${MOTION_DESIGN_DURATION_SECONDS}-second source-locked Motion Design ad was produced and attached for review. ${CONTENT_HUB_MOTION_DESIGN_COST} credits were charged; no generative-video provider was used. Nothing was published or scheduled.`))
         await refreshBillingStatus()
         return
       }

@@ -7,6 +7,7 @@ import {
 import {
   buildMotionDesignFfmpegArgs,
   motionDesignOverlaySvgs,
+  professionalMotionDesignHeadlineLines,
   splitMotionDesignHookMetric,
 } from '@/lib/motionDesignAd.server'
 import { resolvePlatformVideoFormat } from '@/lib/platformVideoFormat'
@@ -230,6 +231,16 @@ describe('source-locked motion design', () => {
       lead: 'داخل دبي فقط خلال',
       metric: '48 ساعة',
     })
+  })
+
+  it('wraps a service-business Arabic headline inside the vertical safe zone without broken words', () => {
+    expect(professionalMotionDesignHeadlineLines('دعونا نحوّل صور عقاراتكم إلى مسودات', true)).toEqual([
+      'دعونا نحوّل صور',
+      'عقاراتكم إلى',
+      'مسودات',
+    ])
+    expect(professionalMotionDesignHeadlineLines('دعونا نحوّل صور عقاراتكم إلى مسودات', true)
+      .every(line => line.length <= 16)).toBe(true)
   })
 
   it('keeps the approved commercial lead visible with the metric in the opening frame', async () => {

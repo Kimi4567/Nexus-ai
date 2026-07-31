@@ -18,23 +18,31 @@ const source = process.env.NEXUS_VISUAL_FIXTURE_SOURCE
 const output = process.env.NEXUS_VISUAL_FIXTURE_OUTPUT
 const variant = process.env.NEXUS_VISUAL_FIXTURE_VARIANT === 'DELIVERY'
   ? 'DELIVERY'
-  : 'SUBSCRIPTION'
+  : process.env.NEXUS_VISUAL_FIXTURE_VARIANT === 'SERVICE'
+    ? 'SERVICE'
+    : 'SUBSCRIPTION'
 
 describe('professional motion-design visual fixture', () => {
   it.runIf(Boolean(source && output))('renders a local review master without external services', async () => {
     const delivery = variant === 'DELIVERY'
+    const service = variant === 'SERVICE'
+    const caption = service
+      ? 'وسطاء العقارات، هل تواجهون تحديات في تنظيم حملاتكم التسويقية؟ 📊 دعونا نحوّل صور عقاراتكم إلى مسودات محتوى قابلة للمراجعة! استراتيجيات مدروسة تبنيها على بياناتكم. #تسويق_عقاري #دبي #حملات_تسويقية'
+      : delivery
+        ? 'داخل دبي فقط خلال 48 ساعة. راجع عنوان التوصيل وتفاصيل الاشتراك قبل الطلب.'
+        : 'كيلوغرام واحد شهريًا مقابل 149 درهمًا. القهوة محمصة حديثًا. التوصيل داخل دبي فقط خلال 48 ساعة. راجع تفاصيل الاشتراك قبل الطلب.'
     const timeline = buildProfessionalVideoTimeline({
       copy: {
-        brandLabel: 'Luma Roast Lab',
-        hook: delivery
+        brandLabel: service ? 'Aster Property Marketing' : 'Luma Roast Lab',
+        hook: service
+          ? 'دعونا نحوّل صور عقاراتكم إلى مسودات'
+          : delivery
           ? 'داخل دبي فقط خلال 48 ساعة'
           : 'كيلوغرام واحد شهريًا مقابل 149 درهمًا',
         cta: 'عرض التفاصيل',
         language: 'ar',
       },
-      caption: delivery
-        ? 'داخل دبي فقط خلال 48 ساعة. راجع عنوان التوصيل وتفاصيل الاشتراك قبل الطلب.'
-        : 'كيلوغرام واحد شهريًا مقابل 149 درهمًا. القهوة محمصة حديثًا. التوصيل داخل دبي فقط خلال 48 ساعة. راجع تفاصيل الاشتراك قبل الطلب.',
+      caption,
       colorPalette: ['#17120F', '#F6F0E8', '#E7A85A'],
       sourceMatchesTarget: false,
       sourceLayout: 'FULL_BLEED',

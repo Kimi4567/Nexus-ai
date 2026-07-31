@@ -45,6 +45,7 @@ import {
   PROFESSIONAL_VIDEO_TIMELINE_VERSION,
   validateProfessionalVideoTimeline,
 } from '@/lib/professionalVideoTimeline'
+import { findMotionDesignTypographyRepairCandidate } from '@/lib/motionDesignRepair'
 import {
   resolvePlatformVideoFormat,
   validatePlatformVideoFormat,
@@ -261,6 +262,29 @@ export async function POST(req: NextRequest, props: Params) {
   const rateLimitResponse = await enforceBillableAiRateLimit(userId, 'MOTION_DESIGN_VIDEO')
   if (rateLimitResponse) return rateLimitResponse
 
+  const typographyRepair = findMotionDesignTypographyRepairCandidate(existingRows, {
+    postId: post.id,
+    sourceMediaId: source.id,
+    attachedMediaId: post.uploadedMediaId,
+  })
+  let replacementRefunded = false
+  if (typographyRepair) {
+    const refund = await restoreCredits({
+      userId,
+      deduction: typographyRepair.deduction,
+      reason: 'Automatic replacement of a v3 Motion Design master with unsafe Arabic headline overflow.',
+    })
+    if (!refund.ok) {
+      return NextResponse.json({
+        error: 'NEXUS paused the typography repair because the previous exact charge could not be restored safely.',
+        code: 'TYPOGRAPHY_REPAIR_REFUND_PENDING',
+        creditsCharged: false,
+        refundPending: true,
+      }, { status: 503 })
+    }
+    replacementRefunded = true
+  }
+
   const copy = buildMotionDesignCopy({
     brandName: brand?.brandName,
     campaignName: campaign.name,
@@ -313,6 +337,7 @@ export async function POST(req: NextRequest, props: Params) {
         professionalTimeline: timeline,
         automaticProviderRetries: 0,
         generativeVideoProviderCalls: 0,
+        replacesGenerationId: typographyRepair?.generationId ?? null,
         operationKey,
         pricingVersion: CURRENT_CREDIT_PRICING_VERSION,
       },
@@ -514,6 +539,7 @@ export async function POST(req: NextRequest, props: Params) {
             qualityReview,
             attached: Boolean(revisionStillCurrent),
             generativeVideoProviderCalls: 0,
+            replacesGenerationId: typographyRepair?.generationId ?? null,
           },
         },
       })
@@ -536,6 +562,8 @@ export async function POST(req: NextRequest, props: Params) {
       professionalTimeline: timeline,
       reviewRequired: true,
       generativeVideoProviderCalls: 0,
+      replacementRefunded,
+      replacedGenerationId: typographyRepair?.generationId ?? null,
       published: false,
       scheduled: false,
     }, { status: 201 })
