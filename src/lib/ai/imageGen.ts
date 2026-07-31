@@ -111,9 +111,22 @@ export function extractTextFreeSceneFromCreativeDirection(value?: string | null)
   if (!clean) return null
 
   const usingClause = clean.match(/\busing\s+(.+?)(?=\.\s*(?:use|do|avoid|exclude)\b|$)/i)?.[1]?.trim()
-  if (!usingClause || NON_RASTER_SAFE_CONCEPT_PATTERN.test(usingClause)) return null
+  if (usingClause && !NON_RASTER_SAFE_CONCEPT_PATTERN.test(usingClause)) {
+    return `${usingClause}, arranged as one clear editorial hero composition with generous negative space`
+  }
 
-  return `${usingClause}, arranged as one clear editorial hero composition with generous negative space`
+  // Some reviewed briefs state the tangible subject directly instead of using
+  // a "using ..." clause, for example "editorial flat-lay illustration of
+  // campaign documents...; no readable text". Accept only explicit visual
+  // media directions here. Broad imperatives such as "show credit pools" must
+  // still pass through normalizeTextFreeCentralElement so abstract business
+  // language cannot become fake UI, labels, or metrics.
+  const directScene = clean.match(
+    /\b(?:illustration|photograph|photo|scene|composition|still[- ]life)\s+(?:of|showing|featuring)\s+(.+?)(?=\s*[.;]\s*(?:use|do|avoid|exclude|without|no)\b|$)/i,
+  )?.[1]?.trim()
+  if (!directScene || NON_RASTER_SAFE_CONCEPT_PATTERN.test(directScene)) return null
+
+  return `${directScene}, arranged as one clear editorial hero composition with generous negative space`
 }
 
 /**

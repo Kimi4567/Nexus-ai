@@ -179,6 +179,38 @@ describe('imageGen prompt contract', () => {
     expect(prompt).not.toContain('focused product and marketing team')
   })
 
+  it('preserves the reviewed property-marketing flat-lay instead of inventing a luxury apartment', async () => {
+    mockExtractVisualConcept.mockResolvedValueOnce({
+      centralElement: 'luxury apartment living room with floor-to-ceiling windows and a city skyline',
+      emotion: 'aspirational, luxurious',
+      headline: 'Improve your property campaign',
+      cta: 'Learn more',
+      visualMood: 'Aspirational luxury real estate',
+    })
+
+    const creativeDirection = 'Professional editorial flat-lay illustration of generic property-marketing campaign documents, a magnifying glass, neutral desk materials, and abstract checklist marks; no readable names, addresses, prices, logos, client data, property listing, property photograph, testimonial, delivery scene, performance result, or claim that the image proves accuracy. Clean landscape composition for LinkedIn, commercially safe, no text.'
+    expect(extractTextFreeSceneFromCreativeDirection(creativeDirection))
+      .toContain('generic property-marketing campaign documents, a magnifying glass')
+
+    const { prompt, concept } = await buildImagePrompt({
+      visualType: 'SOCIAL_PREVIEW',
+      visualStyle: 'Premium',
+      brandName: 'Aster Property Marketing',
+      industry: 'Real estate marketing services',
+      postCaption: 'We help review and improve property campaign copy before approval.',
+      creativeDirection,
+      platform: 'LINKEDIN',
+      assetRole: 'post_background',
+    })
+
+    expect(concept?.centralElement).toContain('generic property-marketing campaign documents')
+    expect(concept?.centralElement).toContain('magnifying glass')
+    expect(prompt).toContain('neutral desk materials')
+    expect(prompt).not.toContain('luxury apartment living room')
+    expect(prompt).not.toContain('floor-to-ceiling windows')
+    expect(prompt).not.toContain('city skyline')
+  })
+
   it('brand-level fallback stays background-only and does not ask for text or logos', async () => {
     const { prompt } = await buildImagePrompt({
       visualType: 'HERO',
