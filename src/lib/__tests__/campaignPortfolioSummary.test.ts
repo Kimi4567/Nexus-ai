@@ -13,6 +13,7 @@ describe('campaign portfolio summary', () => {
         policyVersion: SENTINEL_REVIEW_POLICY_VERSION,
       },
     })).toEqual({
+      hasStrategy: false,
       strategyType: 'full',
       organicPostCount: 16,
       language: 'bilingual',
@@ -29,11 +30,22 @@ describe('campaign portfolio summary', () => {
 
   it('does not invent scope or language for legacy records without a saved contract', () => {
     expect(buildCampaignPortfolioSummary({})).toEqual({
+      hasStrategy: false,
       strategyType: null,
       organicPostCount: null,
       language: null,
       qualityState: 'not_reviewed',
       deliveryState: null,
+    })
+  })
+
+  it('preserves strategy existence when the portfolio API omits the full AI output', () => {
+    expect(buildCampaignPortfolioSummary({
+      strategy: { positioning: 'Evidence-led property marketing' },
+      sentinelReview: { status: 'passed' },
+    })).toMatchObject({
+      hasStrategy: true,
+      qualityState: 'not_reviewed',
     })
   })
 

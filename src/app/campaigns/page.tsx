@@ -74,6 +74,7 @@ function campaignWorkflowStage(campaign: Campaign, ar: boolean, brandTruthLocked
   const sentinel = jsonRecord(output.sentinelReview)
   if (
     campaign.strategySummary?.qualityState === 'needs_attention'
+    || (campaign.strategySummary?.hasStrategy && campaign.strategySummary.qualityState !== 'passed')
     || (Boolean(sentinel.status) && !isCurrentSentinelReview(sentinel))
   ) return ar ? 'مراجعة الجودة مطلوبة' : 'Quality review required'
   const workflow = campaign.workflowSummary

@@ -2,6 +2,7 @@ import { resolveStrategyScope, type StrategyScopeType } from '@/lib/strategy/str
 import { isCurrentSentinelReview } from '@/lib/sentinelReviewPolicy'
 
 export interface CampaignPortfolioSummary {
+  hasStrategy: boolean
   strategyType: StrategyScopeType | null
   organicPostCount: number | null
   language: 'ar' | 'en' | 'bilingual' | null
@@ -17,6 +18,7 @@ function record(value: unknown): Record<string, unknown> {
 
 export function buildCampaignPortfolioSummary(aiOutput: unknown): CampaignPortfolioSummary {
   const output = record(aiOutput)
+  const strategy = record(output.strategy)
   const order = record(output.strategyOrder)
   const deliverables = record(output.strategyDeliverables)
   const rawType = order.strategyType ?? output.strategyType
@@ -27,6 +29,7 @@ export function buildCampaignPortfolioSummary(aiOutput: unknown): CampaignPortfo
   const fulfillment = record(output.strategyFulfillment)
 
   return {
+    hasStrategy: Object.keys(strategy).length > 0,
     strategyType: hasSavedScope ? resolveStrategyScope(output).type : null,
     organicPostCount: typeof rawCount === 'number' && Number.isFinite(rawCount) && rawCount >= 0
       ? Math.floor(rawCount)

@@ -135,6 +135,15 @@ describe('visual audit regressions', () => {
     expect(campaigns).not.toContain('requires real analyticsData')
   })
 
+  it('keeps an existing unreviewed strategy behind the portfolio quality gate', () => {
+    const campaigns = source('src/app/campaigns/page.tsx')
+
+    expect(campaigns).toContain(
+      "campaign.strategySummary?.hasStrategy && campaign.strategySummary.qualityState !== 'passed'",
+    )
+    expect(campaigns).toContain("'Quality review required'")
+  })
+
   it('provides a truthful recovery action when a content workspace is missing', () => {
     const contentHub = source('src/app/campaigns/[id]/content-hub/page.tsx')
 
